@@ -36,7 +36,7 @@ jobs:
               - 'src/**'
               - 'requirements.txt'
 
-  # ── Step 2: lint + test (runs when shared code or tests change) ───────────
+  # ── Step 2: lint + test ───────────────────────────────────────────────────
   test:
     needs: changes
     if: ${{ needs.changes.outputs.shared == 'true' || github.event_name == 'push' }}
@@ -51,7 +51,7 @@ jobs:
       - run: ruff check src/ tests/ query_api/ scoring/ producer/
       - run: pytest tests/ -v
 
-  # ── Step 3: build Docker images (only for changed services) ───────────────
+  # ── Step 3: build + push with SHA tag (Image Updater picks it up) ─────────
   build-producer:
     needs: changes
     if: ${{ needs.changes.outputs.producer == 'true' }}
@@ -66,12 +66,16 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        run: echo "sha=sha-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       - uses: docker/build-push-action@v5
         with:
           context: .
           file: producer/Dockerfile
           push: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
-          tags: ghcr.io/${{ github.repository }}/producer:latest
+          tags: |
+            ghcr.io/${{ github.repository }}/producer:latest
+            ghcr.io/${{ github.repository }}/producer:${{ steps.meta.outputs.sha }}
 
   build-scoring:
     needs: changes
@@ -87,12 +91,16 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        run: echo "sha=sha-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       - uses: docker/build-push-action@v5
         with:
           context: .
           file: scoring/Dockerfile
           push: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
-          tags: ghcr.io/${{ github.repository }}/scoring:latest
+          tags: |
+            ghcr.io/${{ github.repository }}/scoring:latest
+            ghcr.io/${{ github.repository }}/scoring:${{ steps.meta.outputs.sha }}
 
   build-query-api:
     needs: changes
@@ -108,9 +116,13 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        run: echo "sha=sha-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       - uses: docker/build-push-action@v5
         with:
           context: .
           file: query_api/Dockerfile
           push: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
-          tags: ghcr.io/${{ github.repository }}/query-api:latest
+          tags: |
+            ghcr.io/${{ github.repository }}/query-api:latest
+            ghcr.io/${{ github.repository }}/query-api:${{ steps.meta.outputs.sha }}

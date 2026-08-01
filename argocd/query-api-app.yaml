@@ -3,6 +3,11 @@ kind: Application
 metadata:
   name: query-api
   namespace: argocd
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: query-api=ghcr.io/anthu2708/fraud-detection/query-api
+    argocd-image-updater.argoproj.io/query-api.update-strategy: latest
+    argocd-image-updater.argoproj.io/query-api.allow-tags: regexp:^sha-
+    argocd-image-updater.argoproj.io/query-api.pull-secret: pullsecret:argocd/ghcr-secret
 spec:
   project: default
   sources:
