@@ -1,0 +1,106 @@
+name: Manual Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      scoring:
+        description: "Rebuild scoring"
+        type: boolean
+        default: false
+      producer:
+        description: "Rebuild producer"
+        type: boolean
+        default: false
+      query-api:
+        description: "Rebuild query-api"
+        type: boolean
+        default: false
+      ref:
+        description: "Git SHA or branch to build from"
+        required: false
+        default: master
+
+jobs:
+  build-scoring:
+    if: ${{ inputs.scoring == true }}
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        run: echo "sha=sha-$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: scoring/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/scoring:latest
+            ghcr.io/${{ github.repository }}/scoring:${{ steps.meta.outputs.sha }}
+      - run: echo "Pushed scoring:${{ steps.meta.outputs.sha }}"
+
+  build-producer:
+    if: ${{ inputs.producer == true }}
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        run: echo "sha=sha-$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: producer/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/producer:latest
+            ghcr.io/${{ github.repository }}/producer:${{ steps.meta.outputs.sha }}
+      - run: echo "Pushed producer:${{ steps.meta.outputs.sha }}"
+
+  build-query-api:
+    if: ${{ inputs['query-api'] == true }}
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        run: echo "sha=sha-$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: query_api/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/query-api:latest
+            ghcr.io/${{ github.repository }}/query-api:${{ steps.meta.outputs.sha }}
+      - run: echo "Pushed query-api:${{ steps.meta.outputs.sha }}"
