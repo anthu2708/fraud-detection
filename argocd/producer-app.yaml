@@ -3,6 +3,11 @@ kind: Application
 metadata:
   name: producer
   namespace: argocd
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: producer=ghcr.io/anthu2708/fraud-detection/producer
+    argocd-image-updater.argoproj.io/producer.update-strategy: latest
+    argocd-image-updater.argoproj.io/producer.allow-tags: regexp:^sha-
+    argocd-image-updater.argoproj.io/producer.pull-secret: pullsecret:argocd/ghcr-secret
 spec:
   project: default
   sources:
