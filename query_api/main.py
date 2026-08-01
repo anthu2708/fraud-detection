@@ -1,11 +1,20 @@
 import json
 import os
 import threading
+from contextlib import asynccontextmanager
 
 from confluent_kafka import Consumer, KafkaError
 from fastapi import FastAPI
-from contextlib import asynccontextmanager
-from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, create_engine, func
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    Integer,
+    String,
+    create_engine,
+    func,
+)
 from sqlalchemy.orm import DeclarativeBase, Session
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://fraud:fraud@localhost:5432/fraud")

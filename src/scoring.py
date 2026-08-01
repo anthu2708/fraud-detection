@@ -1,5 +1,5 @@
-import numpy as np
 import joblib
+import numpy as np
 
 
 def score_transaction(transaction: dict, model_path: str = "models/isolation_forest_v2.pkl") -> dict:
