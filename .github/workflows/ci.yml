@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  # ── Step 1: detect which paths changed ────────────────────────────────────
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      producer:  ${{ steps.filter.outputs.producer }}
+      scoring:   ${{ steps.filter.outputs.scoring }}
+      query_api: ${{ steps.filter.outputs.query_api }}
+      shared:    ${{ steps.filter.outputs.shared }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            producer:
+              - 'producer/**'
+            scoring:
+              - 'scoring/**'
+              - 'src/**'
+            query_api:
+              - 'query_api/**'
+            shared:
+              - 'tests/**'
+              - 'src/**'
+              - 'requirements.txt'
+
+  # ── Step 2: lint + test (runs when shared code or tests change) ───────────
+  test:
+    needs: changes
+    if: ${{ needs.changes.outputs.shared == 'true' || github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements.txt
+      - run: pip install ruff
+      - run: ruff check src/ tests/ query_api/ scoring/ producer/
+      - run: pytest tests/ -v
+
+  # ── Step 3: build Docker images (only for changed services) ───────────────
+  build-producer:
+    needs: changes
+    if: ${{ needs.changes.outputs.producer == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: producer/Dockerfile
+          push: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
+          tags: ghcr.io/${{ github.repository }}/producer:latest
+
+  build-scoring:
+    needs: changes
+    if: ${{ needs.changes.outputs.scoring == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: scoring/Dockerfile
+          push: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
+          tags: ghcr.io/${{ github.repository }}/scoring:latest
+
+  build-query-api:
+    needs: changes
+    if: ${{ needs.changes.outputs.query_api == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: query_api/Dockerfile
+          push: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
+          tags: ghcr.io/${{ github.repository }}/query-api:latest
