@@ -1,0 +1,4 @@
+confluent-kafka==2.4.0
+scikit-learn>=1.4
+numpy>=1.26
+joblib>=1.3

@@ -1,0 +1,8 @@
+data/
+models/*.pkl
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.pytest_cache/
