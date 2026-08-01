@@ -1,0 +1,18 @@
+image:
+  repository: ghcr.io/anthu2708/fraud-detection/producer
+  tag: latest
+
+env:
+  KAFKA_BOOTSTRAP: "kafka:9092"
+  TX_PER_SECOND: "200"
+  DATA_PATH: "/app/data/creditcard_test.csv"
+  PYTHONUNBUFFERED: "1"
+
+volumeMounts:
+  - name: data
+    mountPath: /app/data
+
+volumes:
+  - name: data
+    hostPath:
+      path: /fraud-data

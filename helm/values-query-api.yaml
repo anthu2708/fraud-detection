@@ -1,0 +1,12 @@
+image:
+  repository: ghcr.io/anthu2708/fraud-detection/query-api
+  tag: latest
+
+env:
+  KAFKA_BOOTSTRAP: "kafka:9092"
+  DATABASE_URL: "postgresql://fraud:fraud@postgres:5432/fraud"
+
+service:
+  enabled: true
+  port: 8000
+  nodePort: 30000

@@ -1,0 +1,26 @@
+# Default values — overridden per service via -f values-<service>.yaml
+
+replicaCount: 1
+
+image:
+  repository: ""
+  tag: latest
+  pullPolicy: IfNotPresent
+
+env: {}
+
+service:
+  enabled: false
+  port: 8000
+  nodePort: null
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+volumeMounts: []
+volumes: []
