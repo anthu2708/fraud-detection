@@ -38,7 +38,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: meta
-        run: echo "sha=sha-$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
       - uses: docker/build-push-action@v5
         with:
           context: .
@@ -66,7 +66,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: meta
-        run: echo "sha=sha-$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
       - uses: docker/build-push-action@v5
         with:
           context: .
@@ -94,7 +94,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: meta
-        run: echo "sha=sha-$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
       - uses: docker/build-push-action@v5
         with:
           context: .
