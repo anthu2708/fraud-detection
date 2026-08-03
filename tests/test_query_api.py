@@ -80,3 +80,27 @@ def test_stats_counts_correctly():
     r = client.get("/stats")
     assert r.json()["total"] == 3
     assert r.json()["fraud"] == 1
+
+
+def test_submit_unavailable_when_kafka_skipped():
+    r = client.post("/transactions/submit", json={"amount": 100.0})
+    assert r.status_code == 503
+
+
+def test_transaction_status_pending():
+    r = client.get("/transactions/nonexistent-id/status")
+    assert r.status_code == 200
+    assert r.json()["status"] == "pending"
+
+
+def test_transaction_status_scored():
+    with Session(engine) as s:
+        s.add(Transaction(transaction_id="tx-scored", anomaly_score=-0.4, risk_score=0.4, is_fraud=True, model_version="v2"))
+        s.commit()
+
+    r = client.get("/transactions/tx-scored/status")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "scored"
+    assert data["is_fraud"] is True
+    assert data["transaction_id"] == "tx-scored"
