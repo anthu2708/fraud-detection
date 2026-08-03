@@ -38,12 +38,6 @@ _kafka_producer: Producer | None = None
 _sse_queues: list[asyncio.Queue] = []
 _main_loop: asyncio.AbstractEventLoop | None = None
 
-# Auto stream
-_auto_config: dict = {"interval": 3.0, "amount": 1000.0}
-_auto_stop_ev = threading.Event()
-_auto_running = False
-_auto_lock = threading.Lock()
-
 # amount cache: tx_id → amount (scoring service doesn't echo Amount back)
 _tx_amount_cache: dict[str, float] = {}
 
@@ -157,18 +151,6 @@ def _consume_loop():
         consumer.close()
 
 
-def _auto_loop():
-    global _auto_running
-    while not _auto_stop_ev.is_set():
-        if _kafka_producer is not None:
-            try:
-                _produce(_auto_config["amount"], None, "auto")
-            except Exception as e:
-                print(f"[auto] {e}")
-        _auto_stop_ev.wait(_auto_config["interval"])
-    with _auto_lock:
-        _auto_running = False
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -179,7 +161,6 @@ async def lifespan(app: FastAPI):
         _kafka_producer = Producer({"bootstrap.servers": KAFKA_BOOTSTRAP})
         threading.Thread(target=_consume_loop, daemon=True).start()
     yield
-    _auto_stop_ev.set()
     if _kafka_producer:
         _kafka_producer.flush()
 
@@ -269,32 +250,6 @@ def stats():
         fraud = s.query(Transaction).filter_by(is_fraud=True).count()
         return {"total": total, "fraud": fraud, "fraud_rate": round(fraud / total, 4) if total else 0}
 
-
-@app.post("/auto/start")
-def auto_start(interval: float = 3.0, amount: float = 1000.0):
-    global _auto_running
-    if _kafka_producer is None:
-        raise HTTPException(503, "Kafka unavailable")
-    with _auto_lock:
-        if _auto_running:
-            return {"status": "already running"}
-        _auto_config["interval"] = max(1.0, interval)
-        _auto_config["amount"] = amount
-        _auto_stop_ev.clear()
-        _auto_running = True
-        threading.Thread(target=_auto_loop, daemon=True).start()
-    return {"status": "started", "interval": _auto_config["interval"], "amount": amount}
-
-
-@app.post("/auto/stop")
-def auto_stop():
-    _auto_stop_ev.set()
-    return {"status": "stopped"}
-
-
-@app.get("/auto/status")
-def auto_status():
-    return {"running": _auto_running, "interval": _auto_config["interval"], "amount": _auto_config["amount"]}
 
 
 @app.get("/events")
@@ -459,21 +414,14 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
   <div class="panel">
     <div class="panel-label">
-      Auto Stream
-      <span class="dot" id="auto-dot"></span>
+      Kafka Monitor
+      <span class="dot" id="sse-dot"></span>
     </div>
-    <div class="field-row">
-      <div class="field">
-        <label>Interval (s)</label>
-        <input type="number" id="a-interval" value="3" min="1" max="60">
-      </div>
-      <div class="field">
-        <label>Amount ($)</label>
-        <input type="number" id="a-amount" value="1000" min="0" step="0.01">
-      </div>
-      <button class="btn btn-green" id="auto-btn" onclick="toggleAuto()">Start</button>
+    <div style="font-size:11px; color:var(--muted); line-height:1.8;">
+      <div>Status: <span id="sse-status" style="color:var(--text)">connecting...</span></div>
+      <div>Scored: <span id="sse-total" style="color:var(--text)">0</span></div>
+      <div>Last: <span id="sse-last" style="color:var(--text)">-</span></div>
     </div>
-    <div class="status-line" id="a-status">Stopped</div>
   </div>
 </div>
 
@@ -493,21 +441,21 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
 <div class="stream">
   <div class="stream-header">
-    <span class="stream-title">Auto Stream</span>
-    <span class="stream-count" id="a-count">0 transactions</span>
+    <span class="stream-title">Kafka Stream</span>
+    <span class="stream-count" id="a-count">0 scored</span>
   </div>
   <table>
     <thead><tr>
       <th>ID</th><th>Amount ($)</th><th>Submitted</th><th>Latency</th>
       <th>Risk Score</th><th>Anomaly Score</th><th>Model</th><th>Status</th>
     </tr></thead>
-    <tbody id="a-body"><tr><td colspan="8" class="empty">Auto stream not started</td></tr></tbody>
+    <tbody id="a-body"><tr><td colspan="8" class="empty">Waiting for scored messages...</td></tr></tbody>
   </table>
 </div>
 
 <script>
 let mCount = 0, aCount = 0;
-const meta = {};
+const manualIds = new Set();
 
 function timePickerToSecs(val) {
   if (!val) return null;
@@ -517,14 +465,12 @@ function timePickerToSecs(val) {
 
 function fmtTime(isoStr) {
   if (!isoStr) return '-';
-  const d = new Date(isoStr);
-  return d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  return new Date(isoStr).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
 }
 
 function buildPending(id, amount, submittedAt) {
-  const sid = id.slice(0, 8) + '…';
   return `
-    <td class="c-id" title="${id}">${sid}</td>
+    <td class="c-id" title="${id}">${id.slice(0,8)}…</td>
     <td class="c-amt">${(+amount).toFixed(2)}</td>
     <td class="c-time">${fmtTime(submittedAt)}</td>
     <td class="c-lat">-</td>
@@ -534,15 +480,12 @@ function buildPending(id, amount, submittedAt) {
 }
 
 function buildScored(ev) {
-  const sid = ev.transaction_id.slice(0, 8) + '…';
   const rc = ev.risk_score > 0.5 ? 'c-risk-hi' : 'c-risk-lo';
-  const badge = ev.is_fraud
-    ? '<span class="badge b-fraud">fraud</span>'
-    : '<span class="badge b-ok">ok</span>';
+  const badge = ev.is_fraud ? '<span class="badge b-fraud">fraud</span>' : '<span class="badge b-ok">ok</span>';
   const lat = ev.latency_s != null ? ev.latency_s.toFixed(2) + 's' : '-';
   const amt = ev.amount != null ? (+ev.amount).toFixed(2) : '-';
   return `
-    <td class="c-id" title="${ev.transaction_id}">${sid}</td>
+    <td class="c-id" title="${ev.transaction_id}">${ev.transaction_id.slice(0,8)}…</td>
     <td class="c-amt">${amt}</td>
     <td class="c-time">${fmtTime(ev.submitted_at)}</td>
     <td class="c-lat">${lat}</td>
@@ -552,37 +495,50 @@ function buildScored(ev) {
     <td>${badge}</td>`;
 }
 
-function addPendingRow(id, amount, submittedAt, source) {
-  const tbody = document.getElementById(source === 'manual' ? 'm-body' : 'a-body');
+function prependRow(tbody, id, html) {
   const empty = tbody.querySelector('[colspan]');
   if (empty) empty.closest('tr').remove();
   const row = document.createElement('tr');
   row.id = 'tx-' + id;
-  row.innerHTML = buildPending(id, amount, submittedAt);
+  row.innerHTML = html;
   tbody.insertBefore(row, tbody.firstChild);
-  if (source === 'manual') {
-    mCount++;
-    document.getElementById('m-count').textContent = mCount + ' transaction' + (mCount !== 1 ? 's' : '');
-  } else {
-    aCount++;
-    document.getElementById('a-count').textContent = aCount + ' transaction' + (aCount !== 1 ? 's' : '');
-  }
 }
 
-// SSE — single connection, routes events by source
+// SSE
 const es = new EventSource('/events');
+es.onopen = () => {
+  document.getElementById('sse-dot').className = 'dot dot-on';
+  document.getElementById('sse-status').textContent = 'connected';
+};
+es.onerror = () => {
+  document.getElementById('sse-dot').className = 'dot';
+  document.getElementById('sse-status').textContent = 'disconnected';
+};
 es.onmessage = (e) => {
   const ev = JSON.parse(e.data);
-  const row = document.getElementById('tx-' + ev.transaction_id);
-  if (row) {
-    row.innerHTML = buildScored(ev);
-    return;
+
+  // Update Kafka monitor panel
+  aCount++;
+  document.getElementById('sse-total').textContent = aCount;
+  document.getElementById('sse-last').textContent = fmtTime(ev.submitted_at || new Date().toISOString());
+
+  // Kafka stream table — all scored events
+  const aBody = document.getElementById('a-body');
+  const existingA = document.getElementById('tx-a-' + ev.transaction_id);
+  if (!existingA) {
+    const r = document.createElement('tr');
+    r.id = 'tx-a-' + ev.transaction_id;
+    const empty = aBody.querySelector('[colspan]');
+    if (empty) empty.closest('tr').remove();
+    r.innerHTML = buildScored(ev);
+    aBody.insertBefore(r, aBody.firstChild);
+    document.getElementById('a-count').textContent = aCount + ' scored';
   }
-  // auto stream: server pushes without a pending row existing
-  if (ev.source === 'auto') {
-    addPendingRow(ev.transaction_id, ev.amount, ev.submitted_at, 'auto');
-    const r = document.getElementById('tx-' + ev.transaction_id);
-    if (r) r.innerHTML = buildScored(ev);
+
+  // Manual table — update pending row if this tx was submitted here
+  if (manualIds.has(ev.transaction_id)) {
+    const row = document.getElementById('tx-' + ev.transaction_id);
+    if (row) row.innerHTML = buildScored(ev);
   }
 };
 
@@ -600,31 +556,14 @@ async function submitManual() {
     });
     if (!res.ok) throw new Error(res.status);
     const { transaction_id: id } = await res.json();
-    const now = new Date().toISOString();
-    addPendingRow(id, amount, now, 'manual');
+    manualIds.add(id);
+    const mBody = document.getElementById('m-body');
+    prependRow(mBody, id, buildPending(id, amount, new Date().toISOString()));
+    mCount++;
+    document.getElementById('m-count').textContent = mCount + ' transaction' + (mCount !== 1 ? 's' : '');
     el.textContent = id.slice(0, 8) + '... submitted';
     setTimeout(() => { el.textContent = ''; }, 4000);
   } catch(e) { el.textContent = 'Error: ' + e.message; }
-}
-
-async function toggleAuto() {
-  const btn = document.getElementById('auto-btn');
-  const dot = document.getElementById('auto-dot');
-  const st  = document.getElementById('a-status');
-  const isRunning = btn.textContent === 'Stop';
-
-  if (isRunning) {
-    await fetch('/auto/stop', {method: 'POST'});
-    btn.textContent = 'Start'; btn.className = 'btn btn-green';
-    dot.className = 'dot'; st.textContent = 'Stopped';
-  } else {
-    const interval = parseFloat(document.getElementById('a-interval').value);
-    const amount   = parseFloat(document.getElementById('a-amount').value);
-    const res = await fetch('/auto/start?interval=' + interval + '&amount=' + amount, {method: 'POST'});
-    if (!res.ok) { st.textContent = 'Error: Kafka unavailable'; return; }
-    btn.textContent = 'Stop'; btn.className = 'btn btn-red';
-    dot.className = 'dot dot-on'; st.textContent = 'Running';
-  }
 }
 </script>
 </body>
