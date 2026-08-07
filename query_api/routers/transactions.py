@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -88,5 +88,8 @@ def stats():
 
 
 @router.get("/health")
-def health():
-    return {"status": "ok"}
+def health(response: Response):
+    alive = kafka.consumer_alive()
+    if not alive:
+        response.status_code = 503
+    return {"status": "ok" if alive else "degraded", "consumer": "alive" if alive else "dead"}

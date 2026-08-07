@@ -23,8 +23,10 @@ def fresh_db():
 
 def test_health():
     r = client.get("/health")
-    assert r.status_code == 200
-    assert r.json()["status"] == "ok"
+    # SKIP_KAFKA=true → no consumer thread → 503 degraded
+    assert r.status_code == 503
+    assert r.json()["status"] == "degraded"
+    assert r.json()["consumer"] == "dead"
 
 
 def test_list_transactions_empty():
