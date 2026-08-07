@@ -87,6 +87,11 @@ def stats():
         return {"total": total, "fraud": fraud, "fraud_rate": round(fraud / total, 4) if total else 0}
 
 
+@router.get("/livez")
+def livez():
+    return {"status": "ok"}
+
+
 @router.get("/health")
 def health(response: Response):
     alive = kafka.consumer_alive()
