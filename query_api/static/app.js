@@ -85,6 +85,7 @@ async function submitManual() {
   const secs = timePickerToSecs(timeVal);
   const el = document.getElementById('m-status');
   el.textContent = 'Submitting...';
+
   try {
     const res = await fetch('/transactions/submit', {
       method: 'POST',
