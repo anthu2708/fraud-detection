@@ -59,10 +59,10 @@ def score(artifact: dict, tx: dict) -> dict:
     }
 
 
-def _make_consumer(group_suffix: str, offset_reset: str) -> Consumer:
+def _make_consumer(group_id: str, offset_reset: str) -> Consumer:
     return Consumer({
         "bootstrap.servers": KAFKA_BOOTSTRAP,
-        "group.id": f"scoring-service-{group_suffix}",
+        "group.id": group_id,
         "auto.offset.reset": offset_reset,
         "enable.auto.commit": False,
     })
@@ -71,12 +71,12 @@ def _make_consumer(group_suffix: str, offset_reset: str) -> Consumer:
 def main():
     artifact = load_model(MODEL_PATH)
 
-    # manual topic: latest only (priority lane, no backlog replay)
-    manual_consumer = _make_consumer("manual", "latest")
+    # manual topic: latest only — priority lane, no backlog
+    manual_consumer = _make_consumer("scoring-service-manual", "latest")
     manual_consumer.subscribe([MANUAL_TOPIC])
 
-    # raw topic: earliest (replay all producer history)
-    auto_consumer = _make_consumer("auto", "earliest")
+    # raw topic: reuse original group ID — picks up from committed offset, no replay
+    auto_consumer = _make_consumer("scoring-service", "earliest")
     auto_consumer.subscribe([IN_TOPIC])
 
     producer = Producer({"bootstrap.servers": KAFKA_BOOTSTRAP})
@@ -93,7 +93,7 @@ def main():
             msg = manual_consumer.poll(0.0)
             active = manual_consumer
             if msg is None:
-                msg = auto_consumer.poll(1.0)
+                msg = auto_consumer.poll(0.1)
                 active = auto_consumer
             if msg is None:
                 continue
