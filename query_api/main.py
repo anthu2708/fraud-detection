@@ -64,7 +64,7 @@ def _push_event(payload: dict):
     if _main_loop is None:
         return
     msg = json.dumps(payload)
-    for q in list(_sse_queues):
+    for q in _sse_queues[:]:
         _main_loop.call_soon_threadsafe(q.put_nowait, msg)
 
 
