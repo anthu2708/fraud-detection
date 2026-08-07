@@ -17,6 +17,22 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./fraud_local.db")
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, connect_args=_connect_args)
 
+_MIGRATIONS = [
+    "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP",
+    "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS source VARCHAR(10) DEFAULT 'auto'",
+    "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS amount FLOAT",
+]
+
+
+def migrate() -> None:
+    """Add columns that may be missing from tables created before schema updates."""
+    if DATABASE_URL.startswith("sqlite"):
+        return  # SQLite re-creates fresh in tests; no migration needed
+    from sqlalchemy import text
+    with engine.begin() as conn:
+        for sql in _MIGRATIONS:
+            conn.execute(text(sql))
+
 
 class Base(DeclarativeBase):
     pass

@@ -14,6 +14,7 @@ _STATIC = Path(__file__).parent / "static"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.Base.metadata.create_all(db.engine)
+    db.migrate()
     kafka.startup()
     yield
     kafka.shutdown()
