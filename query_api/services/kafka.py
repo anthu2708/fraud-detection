@@ -20,6 +20,7 @@ SKIP_KAFKA = os.getenv("SKIP_KAFKA", "false").lower() == "true"
 _producer: Producer | None = None
 _sse_queues: list[asyncio.Queue] = []
 _main_loop: asyncio.AbstractEventLoop | None = None
+_consumer_thread: threading.Thread | None = None
 
 
 def push_event(payload: dict) -> None:
@@ -128,12 +129,17 @@ def _consume_loop() -> None:
         consumer.close()
 
 
+def consumer_alive() -> bool:
+    return _consumer_thread is not None and _consumer_thread.is_alive()
+
+
 def startup() -> None:
-    global _producer, _main_loop
+    global _producer, _main_loop, _consumer_thread
     _main_loop = asyncio.get_event_loop()
     if not SKIP_KAFKA:
         _producer = Producer({"bootstrap.servers": KAFKA_BOOTSTRAP})
-        threading.Thread(target=_consume_loop, daemon=True).start()
+        _consumer_thread = threading.Thread(target=_consume_loop, daemon=True)
+        _consumer_thread.start()
 
 
 def shutdown() -> None:
