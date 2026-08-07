@@ -8,7 +8,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from query_api.main import Base, Transaction, app, engine
+from query_api.main import app
+from query_api.services.db import Base, Transaction, engine
 
 client = TestClient(app)
 
