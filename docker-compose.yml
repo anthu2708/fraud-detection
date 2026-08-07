@@ -47,8 +47,8 @@ services:
       kafka:
         condition: service_healthy
     environment:
-      KAFKA_BOOTSTRAP: kafka:9092
-      TX_PER_SECOND: "200"
+      KAFKA_BOOTSTRAP: kafka:29092
+      TX_PER_SECOND: "10"
     volumes:
       - ./data:/app/data
 
@@ -60,7 +60,7 @@ services:
       kafka:
         condition: service_healthy
     environment:
-      KAFKA_BOOTSTRAP: kafka:9092
+      KAFKA_BOOTSTRAP: kafka:29092
       MODEL_PATH: /app/models/isolation_forest_v2.pkl
       MODEL_VERSION: v2
     volumes:
@@ -76,7 +76,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      KAFKA_BOOTSTRAP: kafka:9092
+      KAFKA_BOOTSTRAP: kafka:29092
       DATABASE_URL: postgresql://fraud:fraud@postgres:5432/fraud
     ports:
-      - "8000:8000"
+      - "8001:8000"

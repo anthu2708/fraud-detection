@@ -90,7 +90,7 @@ def _consume_loop():
     consumer = Consumer({
         "bootstrap.servers": KAFKA_BOOTSTRAP,
         "group.id": "query-api",
-        "auto.offset.reset": "earliest",
+        "auto.offset.reset": "latest",
     })
     consumer.subscribe([SCORED_TOPIC])
     try:
@@ -522,18 +522,15 @@ es.onmessage = (e) => {
   document.getElementById('sse-total').textContent = aCount;
   document.getElementById('sse-last').textContent = fmtTime(ev.submitted_at || new Date().toISOString());
 
-  // Kafka stream table — all scored events
+  // Kafka stream table — last 20 scored events
   const aBody = document.getElementById('a-body');
-  const existingA = document.getElementById('tx-a-' + ev.transaction_id);
-  if (!existingA) {
-    const r = document.createElement('tr');
-    r.id = 'tx-a-' + ev.transaction_id;
-    const empty = aBody.querySelector('[colspan]');
-    if (empty) empty.closest('tr').remove();
-    r.innerHTML = buildScored(ev);
-    aBody.insertBefore(r, aBody.firstChild);
-    document.getElementById('a-count').textContent = aCount + ' scored';
-  }
+  const empty = aBody.querySelector('[colspan]');
+  if (empty) empty.closest('tr').remove();
+  const r = document.createElement('tr');
+  r.innerHTML = buildScored(ev);
+  aBody.insertBefore(r, aBody.firstChild);
+  while (aBody.rows.length > 20) aBody.deleteRow(aBody.rows.length - 1);
+  document.getElementById('a-count').textContent = aCount + ' scored';
 
   // Manual table — update pending row if this tx was submitted here
   if (manualIds.has(ev.transaction_id)) {
