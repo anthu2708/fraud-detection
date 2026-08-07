@@ -9,6 +9,7 @@ from confluent_kafka import Consumer, KafkaError, Producer
 
 KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
 IN_TOPIC = "transactions.raw"
+MANUAL_TOPIC = "transactions.manual"
 OUT_TOPIC = "transactions.scored"
 MODEL_PATH = os.getenv("MODEL_PATH", "models/isolation_forest_v2.pkl")
 MODEL_VERSION = os.getenv("MODEL_VERSION", "v2")
@@ -58,27 +59,42 @@ def score(artifact: dict, tx: dict) -> dict:
     }
 
 
+def _make_consumer(group_suffix: str, offset_reset: str) -> Consumer:
+    return Consumer({
+        "bootstrap.servers": KAFKA_BOOTSTRAP,
+        "group.id": f"scoring-service-{group_suffix}",
+        "auto.offset.reset": offset_reset,
+        "enable.auto.commit": False,
+    })
+
+
 def main():
     artifact = load_model(MODEL_PATH)
 
-    consumer = Consumer({
-        "bootstrap.servers": KAFKA_BOOTSTRAP,
-        "group.id": "scoring-service",
-        "auto.offset.reset": "earliest",
-        "enable.auto.commit": False,  # manual commit after produce
-    })
+    # manual topic: latest only (priority lane, no backlog replay)
+    manual_consumer = _make_consumer("manual", "latest")
+    manual_consumer.subscribe([MANUAL_TOPIC])
+
+    # raw topic: earliest (replay all producer history)
+    auto_consumer = _make_consumer("auto", "earliest")
+    auto_consumer.subscribe([IN_TOPIC])
+
     producer = Producer({"bootstrap.servers": KAFKA_BOOTSTRAP})
-    consumer.subscribe([IN_TOPIC])
 
     count = 0
     fraud_count = 0
     t0 = time.perf_counter()
 
-    print(f"[scoring] consuming {IN_TOPIC} → {OUT_TOPIC}")
+    print(f"[scoring] consuming {MANUAL_TOPIC} (priority) + {IN_TOPIC} → {OUT_TOPIC}")
 
     try:
         while not _shutdown:
-            msg = consumer.poll(1.0)
+            # poll manual first (non-blocking) — gives priority to manual submits
+            msg = manual_consumer.poll(0.0)
+            active = manual_consumer
+            if msg is None:
+                msg = auto_consumer.poll(1.0)
+                active = auto_consumer
             if msg is None:
                 continue
             if msg.error():
@@ -92,8 +108,8 @@ def main():
             latency_ms = (time.perf_counter() - t_score) * 1000
 
             producer.produce(OUT_TOPIC, key=result["transaction_id"], value=json.dumps(result))
-            producer.flush()          # ensure delivery before committing offset
-            consumer.commit(asynchronous=False)  # only now mark message as done
+            producer.flush()
+            active.commit(asynchronous=False)
 
             count += 1
             if result["is_fraud"]:
@@ -105,7 +121,8 @@ def main():
 
     finally:
         print(f"[scoring] shutting down cleanly — {count} messages processed")
-        consumer.close()
+        manual_consumer.close()
+        auto_consumer.close()
         producer.flush()
 
 
