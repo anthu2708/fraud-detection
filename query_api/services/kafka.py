@@ -76,69 +76,83 @@ def produce(amount: float, time_s: float | None, source: str) -> str:
     return tx_id
 
 
-def _consume_loop() -> None:
-    consumer = Consumer({
-        "bootstrap.servers": KAFKA_BOOTSTRAP,
-        "group.id": "query-api",
-        "auto.offset.reset": "latest",
+def _consume_once(consumer: "Consumer") -> None:
+    msg = consumer.poll(0.1)
+    if msg is None:
+        return
+    if msg.error():
+        if msg.error().code() != KafkaError._PARTITION_EOF:
+            print(f"[query_api] kafka error: {msg.error()}")
+        return
+    data = json.loads(msg.value())
+    tx_id = data["transaction_id"]
+
+    submitted_at = None
+    if sent := data.get("sent_at"):
+        try:
+            submitted_at = datetime.fromisoformat(sent)
+        except ValueError:
+            pass
+
+    source = data.get("source", "auto")
+    amount = data.get("amount")
+
+    with Session(engine) as s:
+        if s.query(Transaction).filter_by(transaction_id=tx_id).first():
+            return
+        s.add(Transaction(
+            transaction_id=tx_id,
+            submitted_at=submitted_at,
+            anomaly_score=data["anomaly_score"],
+            risk_score=data["risk_score"],
+            is_fraud=data["is_fraud"],
+            model_version=data["model_version"],
+            source=source,
+            amount=amount,
+        ))
+        s.commit()
+
+    scored_at = datetime.now(timezone.utc)
+    latency = None
+    if submitted_at:
+        sub = submitted_at if submitted_at.tzinfo else submitted_at.replace(tzinfo=timezone.utc)
+        latency = round((scored_at - sub).total_seconds(), 2)
+
+    push_event({
+        "transaction_id": tx_id,
+        "amount": amount,
+        "risk_score": round(data["risk_score"], 4),
+        "anomaly_score": round(data["anomaly_score"], 6),
+        "is_fraud": data["is_fraud"],
+        "model_version": data["model_version"],
+        "source": source,
+        "submitted_at": data.get("sent_at"),
+        "latency_s": latency,
     })
-    consumer.subscribe([SCORED_TOPIC])
-    try:
-        while True:
-            msg = consumer.poll(0.1)
-            if msg is None:
-                continue
-            if msg.error():
-                if msg.error().code() != KafkaError._PARTITION_EOF:
-                    print(f"[query_api] kafka error: {msg.error()}")
-                continue
-            data = json.loads(msg.value())
-            tx_id = data["transaction_id"]
 
-            submitted_at = None
-            if sent := data.get("sent_at"):
-                try:
-                    submitted_at = datetime.fromisoformat(sent)
-                except ValueError:
-                    pass
 
-            source = data.get("source", "auto")
-            amount = data.get("amount")
-
-            with Session(engine) as s:
-                if s.query(Transaction).filter_by(transaction_id=tx_id).first():
-                    continue
-                s.add(Transaction(
-                    transaction_id=tx_id,
-                    submitted_at=submitted_at,
-                    anomaly_score=data["anomaly_score"],
-                    risk_score=data["risk_score"],
-                    is_fraud=data["is_fraud"],
-                    model_version=data["model_version"],
-                    source=source,
-                    amount=amount,
-                ))
-                s.commit()
-
-            scored_at = datetime.now(timezone.utc)
-            latency = None
-            if submitted_at:
-                sub = submitted_at if submitted_at.tzinfo else submitted_at.replace(tzinfo=timezone.utc)
-                latency = round((scored_at - sub).total_seconds(), 2)
-
-            push_event({
-                "transaction_id": tx_id,
-                "amount": amount,
-                "risk_score": round(data["risk_score"], 4),
-                "anomaly_score": round(data["anomaly_score"], 6),
-                "is_fraud": data["is_fraud"],
-                "model_version": data["model_version"],
-                "source": source,
-                "submitted_at": data.get("sent_at"),
-                "latency_s": latency,
+def _consume_loop() -> None:
+    import time as _time
+    retry = 0
+    while True:
+        consumer = None
+        try:
+            consumer = Consumer({
+                "bootstrap.servers": KAFKA_BOOTSTRAP,
+                "group.id": "query-api",
+                "auto.offset.reset": "latest",
             })
-    finally:
-        consumer.close()
+            consumer.subscribe([SCORED_TOPIC])
+            retry = 0
+            while True:
+                _consume_once(consumer)
+        except (RuntimeError, ValueError, OSError) as e:
+            print(f"[query_api] consumer error: {e} — retry {retry}")
+            retry += 1
+            _time.sleep(min(2 ** retry, 30))
+        finally:
+            if consumer:
+                consumer.close()
 
 
 def consumer_alive() -> bool:
