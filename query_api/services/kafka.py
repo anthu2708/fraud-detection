@@ -14,6 +14,7 @@ from .db import Transaction, engine
 KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
 SCORED_TOPIC = "transactions.scored"
 RAW_TOPIC = "transactions.raw"
+MANUAL_TOPIC = "transactions.manual"
 SKIP_KAFKA = os.getenv("SKIP_KAFKA", "false").lower() == "true"
 
 _producer: Producer | None = None
@@ -56,7 +57,8 @@ def produce(amount: float, time_s: float | None, source: str) -> str:
         "sent_at": now.isoformat(),
         "source": source,
     })
-    _producer.produce(RAW_TOPIC, key=tx_id, value=json.dumps(tx))
+    topic = MANUAL_TOPIC if source == "manual" else RAW_TOPIC
+    _producer.produce(topic, key=tx_id, value=json.dumps(tx))
     _producer.poll(0)
     return tx_id
 
@@ -70,7 +72,7 @@ def _consume_loop() -> None:
     consumer.subscribe([SCORED_TOPIC])
     try:
         while True:
-            msg = consumer.poll(1.0)
+            msg = consumer.poll(0.1)
             if msg is None:
                 continue
             if msg.error():
