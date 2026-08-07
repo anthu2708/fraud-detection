@@ -5,6 +5,7 @@ import random
 import threading
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 from confluent_kafka import Consumer, KafkaError, Producer
 from sqlalchemy.orm import Session
@@ -21,6 +22,14 @@ _producer: Producer | None = None
 _sse_queues: list[asyncio.Queue] = []
 _main_loop: asyncio.AbstractEventLoop | None = None
 _consumer_thread: threading.Thread | None = None
+
+_V_SAMPLES: dict[str, list[float]] = {}
+
+def _load_v_samples() -> None:
+    p = Path(__file__).parent.parent / "data" / "v_samples.json"
+    if p.exists():
+        global _V_SAMPLES
+        _V_SAMPLES = json.loads(p.read_text())
 
 
 def push_event(payload: dict) -> None:
@@ -50,7 +59,10 @@ def produce(amount: float, time_s: float | None, source: str) -> str:
     now = datetime.now(timezone.utc)
     t = time_s if time_s is not None else (now.hour * 3600 + now.minute * 60 + now.second)
     tx_id = str(uuid.uuid4())
-    tx = {f"V{i}": round(random.gauss(0, 1), 6) for i in range(1, 29)}
+    tx = {
+        f"V{i}": random.choice(_V_SAMPLES[f"V{i}"]) if _V_SAMPLES.get(f"V{i}") else round(random.gauss(0, 1), 6)
+        for i in range(1, 29)
+    }
     tx.update({
         "Amount": amount,
         "Time": float(t),
@@ -135,6 +147,7 @@ def consumer_alive() -> bool:
 
 def startup() -> None:
     global _producer, _main_loop, _consumer_thread
+    _load_v_samples()
     _main_loop = asyncio.get_event_loop()
     if not SKIP_KAFKA:
         _producer = Producer({"bootstrap.servers": KAFKA_BOOTSTRAP})

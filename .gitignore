@@ -1,4 +1,5 @@
 data/
+!query_api/data/
 models/*.pkl
 __pycache__/
 *.pyc
