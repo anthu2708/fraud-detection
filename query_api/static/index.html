@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fraud Detection</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="header">
+  <h1>Fraud Detection</h1>
+  <p>Isolation Forest v2 · Real-time scoring via Kafka · SSE push</p>
+</div>
+
+<div class="controls">
+  <div class="panel">
+    <div class="panel-label">Manual Submit</div>
+    <div class="field-row">
+      <div class="field">
+        <label>Amount ($)</label>
+        <input type="number" id="m-amount" value="5000" min="0" step="0.01">
+      </div>
+      <div class="field">
+        <label>Time</label>
+        <input type="time" id="m-time">
+      </div>
+      <button class="btn btn-blue" onclick="submitManual()">Submit</button>
+    </div>
+    <div class="status-line" id="m-status"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">
+      Kafka Monitor
+      <span class="dot" id="sse-dot"></span>
+    </div>
+    <div style="font-size:11px; color:var(--muted); line-height:1.8;">
+      <div>Status: <span id="sse-status" style="color:var(--text)">connecting...</span></div>
+      <div>Scored: <span id="sse-total" style="color:var(--text)">0</span></div>
+      <div>Last: <span id="sse-last" style="color:var(--text)">-</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="stream">
+  <div class="stream-header">
+    <span class="stream-title">Manual</span>
+    <span class="stream-count" id="m-count">0 transactions</span>
+  </div>
+  <table>
+    <thead><tr>
+      <th>ID</th><th>Amount ($)</th><th>Submitted</th><th>Latency</th>
+      <th>Risk Score</th><th>Anomaly Score</th><th>Model</th><th>Status</th>
+    </tr></thead>
+    <tbody id="m-body"><tr><td colspan="8" class="empty">No transactions yet</td></tr></tbody>
+  </table>
+</div>
+
+<div class="stream">
+  <div class="stream-header">
+    <span class="stream-title">Kafka Stream</span>
+    <span class="stream-count" id="a-count">0 scored</span>
+  </div>
+  <table>
+    <thead><tr>
+      <th>ID</th><th>Amount ($)</th><th>Submitted</th><th>Latency</th>
+      <th>Risk Score</th><th>Anomaly Score</th><th>Model</th><th>Status</th>
+    </tr></thead>
+    <tbody id="a-body"><tr><td colspan="8" class="empty">Waiting for scored messages...</td></tr></tbody>
+  </table>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

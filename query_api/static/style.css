@@ -1,0 +1,102 @@
+:root {
+  --bg: #09090b;
+  --surface: #18181b;
+  --border: #27272a;
+  --border-soft: #1c1c1f;
+  --text: #fafafa;
+  --muted: #a1a1aa;
+  --accent: #3b82f6;
+  --fraud: #ef4444;
+  --fraud-bg: #1c0a0a;
+  --ok: #22c55e;
+  --ok-bg: #081a0e;
+  --mono: 'JetBrains Mono','Fira Code','Cascadia Code',ui-monospace,monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--mono);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  padding: 32px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.header { margin-bottom: 28px; }
+.header h1 { font-size: 13px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 4px; }
+.header p { font-size: 11px; color: var(--muted); }
+
+.controls { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 32px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px; }
+.panel-label { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; background: var(--muted); flex-shrink: 0; }
+.dot-on { background: var(--ok); animation: blink 1.6s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.field-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-size: 10px; color: var(--muted); letter-spacing: 0.06em; }
+input[type=number], input[type=time] {
+  font-family: var(--mono); font-size: 12px;
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); padding: 7px 10px; border-radius: 6px;
+  -moz-appearance: textfield;
+  color-scheme: dark;
+}
+input[type=number] { width: 108px; }
+input[type=time] { width: 108px; }
+input:focus { outline: none; border-color: var(--accent); }
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.btn {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 8px 14px; border-radius: 6px; border: none; cursor: pointer;
+}
+.btn:active { transform: translateY(1px); }
+.btn-blue { background: var(--accent); color: #fff; }
+.btn-blue:hover { opacity: 0.88; }
+.btn-green { background: #16a34a; color: #fff; }
+.btn-green:hover { opacity: 0.88; }
+.btn-red { background: var(--fraud); color: #fff; }
+.btn-red:hover { opacity: 0.88; }
+.status-line { margin-top: 10px; font-size: 11px; color: var(--muted); min-height: 16px; }
+
+.stream { margin-bottom: 24px; }
+.stream-header {
+  display: flex; align-items: center; gap: 8px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.stream-title { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.stream-count { font-size: 10px; color: var(--muted); margin-left: auto; }
+
+table { width: 100%; border-collapse: collapse; }
+th {
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted); text-align: left; padding: 9px 12px;
+  font-weight: 400; border-bottom: 1px solid var(--border-soft); white-space: nowrap;
+}
+td { font-size: 12px; padding: 9px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(255,255,255,0.02); }
+
+.c-id { color: var(--muted); font-size: 11px; }
+.c-amt { color: var(--text); }
+.c-time { color: var(--muted); font-size: 11px; }
+.c-lat { color: var(--muted); font-size: 11px; }
+.c-risk-hi { color: var(--fraud); }
+.c-risk-lo { color: var(--ok); }
+.c-anom { color: var(--muted); }
+.c-model { color: var(--muted); font-size: 11px; }
+
+.badge {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.07em; padding: 3px 8px; border-radius: 4px; text-transform: uppercase;
+}
+.b-fraud { background: var(--fraud-bg); color: var(--fraud); border: 1px solid #7f1d1d; }
+.b-ok    { background: var(--ok-bg);    color: var(--ok);    border: 1px solid #14532d; }
+.b-pend  { background: transparent;     color: var(--muted); border: 1px solid var(--border); }
+
+.empty { font-size: 11px; color: var(--muted); padding: 18px 12px; }
+
+@media (max-width: 680px) { .controls { grid-template-columns: 1fr; } }
