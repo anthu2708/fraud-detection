@@ -49,6 +49,8 @@ def score(artifact: dict, tx: dict) -> dict:
     return {
         "transaction_id": tx["transaction_id"],
         "sent_at": tx.get("sent_at", ""),
+        "amount": tx.get("Amount"),
+        "source": tx.get("source", "auto"),
         "anomaly_score": round(raw, 6),
         "risk_score": round(float(min(max(-raw, 0), 1)), 6),
         "is_fraud": bool(is_fraud),

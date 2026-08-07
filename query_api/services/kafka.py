@@ -19,7 +19,6 @@ SKIP_KAFKA = os.getenv("SKIP_KAFKA", "false").lower() == "true"
 _producer: Producer | None = None
 _sse_queues: list[asyncio.Queue] = []
 _main_loop: asyncio.AbstractEventLoop | None = None
-_tx_amount_cache: dict[str, float] = {}
 
 
 def push_event(payload: dict) -> None:
@@ -59,7 +58,6 @@ def produce(amount: float, time_s: float | None, source: str) -> str:
     })
     _producer.produce(RAW_TOPIC, key=tx_id, value=json.dumps(tx))
     _producer.poll(0)
-    _tx_amount_cache[tx_id] = amount
     return tx_id
 
 
@@ -90,7 +88,7 @@ def _consume_loop() -> None:
                     pass
 
             source = data.get("source", "auto")
-            amount = _tx_amount_cache.pop(tx_id, None) or data.get("Amount")
+            amount = data.get("amount")
 
             with Session(engine) as s:
                 if s.query(Transaction).filter_by(transaction_id=tx_id).first():
