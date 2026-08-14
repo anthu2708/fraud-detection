@@ -33,6 +33,10 @@ def load_model(path: str) -> dict:
     return artifact
 
 
+def _validate(tx: dict, features: list) -> list:
+    return [f for f in features if f not in tx or tx[f] is None]
+
+
 def score(artifact: dict, tx: dict) -> dict:
     model = artifact["model"]
     features = artifact["features"]
@@ -40,7 +44,7 @@ def score(artifact: dict, tx: dict) -> dict:
     scale_cols = artifact.get("scale_cols", [])
     threshold = artifact.get("threshold")
 
-    X = np.array([[tx[f] for f in features]])
+    X = np.array([[tx.get(f) if tx.get(f) is not None else 0.0 for f in features]])
     if scaler is not None and scale_cols:
         X[:, scale_cols] = scaler.transform(X[:, scale_cols])
 
@@ -104,6 +108,11 @@ def main():
 
             t_score = time.perf_counter()
             tx = json.loads(msg.value())
+            missing = _validate(tx, artifact["features"])
+            if missing:
+                print(f"[scoring] WARN skipping tx — missing features: {missing}")
+                active.commit(asynchronous=False)
+                continue
             result = score(artifact, tx)
             latency_ms = (time.perf_counter() - t_score) * 1000
 
@@ -115,7 +124,7 @@ def main():
             if result["is_fraud"]:
                 fraud_count += 1
 
-            if count % 10_000 == 0:
+            if count == 1 or count % 1_000 == 0:
                 elapsed = time.perf_counter() - t0
                 print(f"[scoring] {count} scored | {count/elapsed:.0f} tx/s | fraud={fraud_count} | last_latency={latency_ms:.2f}ms")
 

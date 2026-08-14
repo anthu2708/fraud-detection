@@ -1,11 +1,17 @@
 """Train Isolation Forest on Kaggle Credit Card Fraud dataset and save model."""
 import sys
+from pathlib import Path
+
 import joblib
 import numpy as np
 import pandas as pd
-from pathlib import Path
 from sklearn.ensemble import IsolationForest
-from sklearn.metrics import classification_report, fbeta_score, precision_recall_curve, precision_score, recall_score
+from sklearn.metrics import (
+    classification_report,
+    precision_recall_curve,
+    precision_score,
+    recall_score,
+)
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import RobustScaler
 
@@ -18,7 +24,7 @@ def _load_split(data_path: Path):
     X = df[features].values
     y = df["Class"].values
     split = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-    X_train, X_test, y_train, y_test = split
+    _X_train, X_test, _y_train, y_test = split
 
     # Save test set so Producer replays only unseen transactions
     test_df = pd.DataFrame(X_test, columns=features)
@@ -74,10 +80,12 @@ def train_v2():
     (X_train, X_test, y_train, y_test), features = _load_split(DATA_PATH)
 
     scale_cols = [features.index("Time"), features.index("Amount")]
+    X_normal_raw = X_train[y_train == 0]
     scaler = RobustScaler()
+    scaler.fit(X_normal_raw[:, scale_cols])
     X_train_s = X_train.copy()
     X_test_s = X_test.copy()
-    X_train_s[:, scale_cols] = scaler.fit_transform(X_train[:, scale_cols])
+    X_train_s[:, scale_cols] = scaler.transform(X_train[:, scale_cols])
     X_test_s[:, scale_cols] = scaler.transform(X_test[:, scale_cols])
 
     X_normal = X_train_s[y_train == 0]
@@ -113,8 +121,9 @@ def train_v2():
 
 def train_v3():
     """relataly approach: GridSearchCV with y labels to find best hyperparams."""
+    from sklearn.metrics import f1_score as f1
+    from sklearn.metrics import make_scorer
     from sklearn.model_selection import GridSearchCV
-    from sklearn.metrics import make_scorer, f1_score as f1
 
     (X_train, X_test, y_train, y_test), features = _load_split(DATA_PATH)
     contamination = float(y_train.mean())
@@ -122,7 +131,7 @@ def train_v3():
     # IsolationForest predict() returns -1 (anomaly) / 1 (normal)
     # Map y to same space so GridSearchCV scorer works
     y_train_mapped = np.where(y_train == 1, -1, 1)
-    y_test_mapped  = np.where(y_test  == 1, -1, 1)
+    _y_test_mapped  = np.where(y_test  == 1, -1, 1)
 
     model = IsolationForest(contamination=contamination, random_state=42, n_jobs=-1)
     scorer = make_scorer(f1, pos_label=-1, average="binary")

@@ -10,6 +10,10 @@ def score_transaction(transaction: dict, model_path: str = "models/isolation_for
     scale_cols = artifact.get("scale_cols", [])
     threshold = artifact.get("threshold")
 
+    missing = [f for f in features if f not in transaction or transaction[f] is None]
+    if missing:
+        raise ValueError(f"Missing features: {missing}")
+
     X = np.array([[transaction[f] for f in features]])
 
     if scaler is not None and scale_cols:
