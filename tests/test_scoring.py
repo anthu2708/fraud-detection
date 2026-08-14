@@ -34,3 +34,13 @@ def test_obvious_anomaly_flagged(model_path):
 def test_risk_score_range(model_path):
     result = score_transaction({"f1": 0.1, "f2": 0.1}, model_path=model_path)
     assert 0.0 <= result["risk_score"] <= 1.0
+
+
+def test_missing_feature_raises(model_path):
+    with pytest.raises((KeyError, ValueError)):
+        score_transaction({"f1": 0.5}, model_path=model_path)
+
+
+def test_none_feature_raises(model_path):
+    with pytest.raises((KeyError, ValueError, TypeError)):
+        score_transaction({"f1": None, "f2": -0.3}, model_path=model_path)
