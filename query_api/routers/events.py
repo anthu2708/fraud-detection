@@ -25,3 +25,22 @@ async def sse_events():
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.get("/events/dashboard")
+async def dashboard_events():
+    q: asyncio.Queue = kafka.subscribe_dashboard()
+
+    async def stream():
+        try:
+            while True:
+                data = await q.get()
+                yield f"data: {data}\n\n"
+        finally:
+            kafka.unsubscribe_dashboard(q)
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

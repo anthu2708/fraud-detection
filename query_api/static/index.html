@@ -8,67 +8,127 @@
 </head>
 <body>
 
-<div class="header">
-  <h1>Fraud Detection</h1>
-  <p>Isolation Forest v2 · Real-time scoring via Kafka · SSE push</p>
-</div>
-
-<div class="controls">
-  <div class="panel">
-    <div class="panel-label">Manual Submit</div>
-    <div class="field-row">
-      <div class="field">
-        <label>Amount ($)</label>
-        <input type="number" id="m-amount" value="5000" min="0" step="0.01">
+<div class="top-bar">
+  <span class="top-title">FRAUD DETECTION <span class="dot" id="sse-dot"></span> <span id="sse-status" class="conn-text">connecting...</span></span>
+  <div class="top-right">
+    <button class="btn-stream" id="stream-btn" onclick="toggleStream()">⏸ Pause stream</button>
+    <div class="time-picker" id="time-picker">
+      <button class="tp-btn" id="tp-btn" onclick="toggleTimePicker()"><span id="tp-label">Last 30s</span> ▾</button>
+      <div class="tp-dropdown" id="tp-dropdown">
+        <div class="tp-section">RELATIVE</div>
+        <div class="tp-presets">
+          <button onclick="setRelative(30,'30s')">Last 30s</button>
+          <button onclick="setRelative(300,'5m')">Last 5m</button>
+          <button onclick="setRelative(900,'15m')">Last 15m</button>
+          <button onclick="setRelative(1800,'30m')">Last 30m</button>
+          <button onclick="setRelative(3600,'1h')">Last 1h</button>
+        </div>
+        <div class="tp-section" style="margin-top:10px">CUSTOM RANGE</div>
+        <div class="tp-custom">
+          <label>From</label>
+          <input type="datetime-local" id="tp-from">
+          <label>To</label>
+          <input type="datetime-local" id="tp-to">
+          <button class="tp-apply" onclick="applyCustomRange()">Apply</button>
+        </div>
       </div>
-      <div class="field">
-        <label>Time</label>
-        <input type="time" id="m-time">
-      </div>
-      <button class="btn btn-blue" onclick="submitManual()">Submit</button>
-    </div>
-    <div class="status-line" id="m-status"></div>
-  </div>
-
-  <div class="panel">
-    <div class="panel-label">
-      Kafka Monitor
-      <span class="dot" id="sse-dot"></span>
-    </div>
-    <div style="font-size:11px; color:var(--muted); line-height:1.8;">
-      <div>Status: <span id="sse-status" style="color:var(--text)">connecting...</span></div>
-      <div>Scored: <span id="sse-total" style="color:var(--text)">0</span></div>
-      <div>Last: <span id="sse-last" style="color:var(--text)">-</span></div>
     </div>
   </div>
 </div>
 
-<div class="stream">
-  <div class="stream-header">
-    <span class="stream-title">Manual</span>
-    <span class="stream-count" id="m-count">0 transactions</span>
+<div class="stats-row">
+  <div class="stat-block">
+    <div class="stat-val" id="stat-rate">0</div>
+    <div class="stat-key">msg/s</div>
   </div>
-  <table>
-    <thead><tr>
-      <th>ID</th><th>Amount ($)</th><th>Submitted</th><th>Latency</th>
-      <th>Risk Score</th><th>Anomaly Score</th><th>Model</th><th>Status</th>
-    </tr></thead>
-    <tbody id="m-body"><tr><td colspan="8" class="empty">No transactions yet</td></tr></tbody>
-  </table>
+  <div class="stat-sep"></div>
+  <div class="stat-block">
+    <div class="stat-val" id="stat-total">0</div>
+    <div class="stat-key">total scored</div>
+  </div>
+  <div class="stat-sep"></div>
+  <div class="stat-block">
+    <div class="stat-val" id="stat-avg">0 ms</div>
+    <div class="stat-key">avg latency</div>
+    <div class="stat-sub" id="stat-p95">p95 — ms</div>
+  </div>
+  <div class="stat-sep"></div>
+  <div class="stat-block">
+    <div class="stat-val" id="stat-alerts">0</div>
+    <div class="stat-key">alerts/s</div>
+  </div>
 </div>
 
-<div class="stream">
-  <div class="stream-header">
-    <span class="stream-title">Kafka Stream</span>
-    <span class="stream-count" id="a-count">0 scored</span>
+<div class="charts-label">
+  <span class="section-label" style="margin-bottom:0">EVENT RATE &amp; FRAUD FLAGS</span>
+  <span class="time-mode-badge" id="time-mode-badge">● LIVE</span>
+</div>
+
+<div class="charts-row">
+  <div class="chart-wrap">
+    <div class="chart-label">EVENT RATE</div>
+    <canvas id="rate-chart"></canvas>
   </div>
-  <table>
-    <thead><tr>
-      <th>ID</th><th>Amount ($)</th><th>Submitted</th><th>Latency</th>
-      <th>Risk Score</th><th>Anomaly Score</th><th>Model</th><th>Status</th>
-    </tr></thead>
-    <tbody id="a-body"><tr><td colspan="8" class="empty">Waiting for scored messages...</td></tr></tbody>
-  </table>
+  <div class="chart-wrap">
+    <div class="chart-label">FRAUD FLAGS</div>
+    <canvas id="fraud-chart"></canvas>
+  </div>
+</div>
+
+<div class="mid-row">
+  <div class="risk-panel">
+    <div class="section-label">RISK DISTRIBUTION</div>
+    <div class="risk-row">
+      <span class="risk-lbl">LOW</span>
+      <div class="risk-track"><div class="risk-fill rf-low" id="rf-low"></div></div>
+      <span class="risk-pct" id="rp-low">0%</span>
+    </div>
+    <div class="risk-row">
+      <span class="risk-lbl">MEDIUM</span>
+      <div class="risk-track"><div class="risk-fill rf-med" id="rf-med"></div></div>
+      <span class="risk-pct" id="rp-med">0%</span>
+    </div>
+    <div class="risk-row">
+      <span class="risk-lbl">HIGH</span>
+      <div class="risk-track"><div class="risk-fill rf-hi" id="rf-hi"></div></div>
+      <span class="risk-pct" id="rp-hi">0%</span>
+    </div>
+  </div>
+
+  <div class="flags-panel">
+    <div class="section-label">LIVE FRAUD FLAGS</div>
+    <div id="fraud-flags"><div class="empty">No flags yet</div></div>
+  </div>
+</div>
+
+<div class="section-label">RECENT SAMPLE</div>
+<table class="sample-table">
+  <colgroup>
+    <col style="width:110px">
+    <col style="width:80px">
+    <col style="width:70px">
+    <col style="width:80px">
+  </colgroup>
+  <tbody id="sample-body">
+    <tr><td colspan="4" class="empty">Waiting for data...</td></tr>
+  </tbody>
+</table>
+
+<div class="submit-panel">
+  <div class="section-label">MANUAL SUBMIT</div>
+  <div class="field-row">
+    <div class="field">
+      <label>Amount ($)</label>
+      <input type="number" id="m-amount" value="5000" min="0" step="0.01">
+    </div>
+    <div class="field">
+      <label>Time</label>
+      <input type="time" id="m-time">
+    </div>
+    <button class="btn btn-blue" onclick="submitManual()">Submit</button>
+  </div>
+  <div class="status-line" id="m-status"></div>
+  <div id="m-results"></div>
 </div>
 
 <script src="/static/app.js"></script>
