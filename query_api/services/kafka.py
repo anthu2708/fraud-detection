@@ -3,7 +3,9 @@ import json
 import os
 import random
 import threading
+import time as _time
 import uuid
+from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -20,10 +22,21 @@ SKIP_KAFKA = os.getenv("SKIP_KAFKA", "false").lower() == "true"
 
 _producer: Producer | None = None
 _sse_queues: list[asyncio.Queue] = []
+_dashboard_queues: list[asyncio.Queue] = []
 _main_loop: asyncio.AbstractEventLoop | None = None
 _consumer_thread: threading.Thread | None = None
 
 _V_SAMPLES: dict[str, list[float]] = {}
+
+# Aggregation state
+_agg_lock = threading.Lock()
+_win: deque = deque()           # (ts, risk_score, latency_s, is_fraud)
+_agg_total: int = 0
+_fraud_flags: deque = deque(maxlen=8)
+_recent_samples: deque = deque(maxlen=10)
+_rate_history: deque = deque([0] * 30, maxlen=30)
+_cur_bucket: int = 0
+_cur_bucket_count: int = 0
 
 def _load_v_samples() -> None:
     p = Path(__file__).parent.parent / "data" / "v_samples.json"
@@ -51,6 +64,79 @@ def unsubscribe_sse(q: asyncio.Queue) -> None:
         _sse_queues.remove(q)
     except ValueError:
         pass
+
+
+def subscribe_dashboard() -> asyncio.Queue:
+    q: asyncio.Queue = asyncio.Queue()
+    _dashboard_queues.append(q)
+    return q
+
+
+def unsubscribe_dashboard(q: asyncio.Queue) -> None:
+    try:
+        _dashboard_queues.remove(q)
+    except ValueError:
+        pass
+
+
+def _agg_update(risk: float, lat: float | None, fraud: bool) -> None:
+    global _agg_total, _cur_bucket, _cur_bucket_count
+    now = _time.time()
+    with _agg_lock:
+        _agg_total += 1
+        _win.append((now, risk, lat, fraud))
+        sec = int(now)
+        if sec != _cur_bucket:
+            _rate_history.append(_cur_bucket_count)
+            _cur_bucket = sec
+            _cur_bucket_count = 1
+        else:
+            _cur_bucket_count += 1
+
+
+def _push_dashboard_stats() -> None:
+    now = _time.time()
+    with _agg_lock:
+        cutoff = now - 5.0
+        while _win and _win[0][0] < cutoff:
+            _win.popleft()
+
+        recent = [e for e in _win if e[0] >= now - 1.0]
+        rate = len(recent)
+        lats = sorted(e[2] for e in recent if e[2] is not None)
+        avg_lat = round(sum(lats) / len(lats) * 1000) if lats else 0
+        p95_lat = round(lats[int(len(lats) * 0.95)] * 1000) if lats else 0
+        risks = [e[1] for e in recent]
+        n = len(risks)
+        if n:
+            low = round(sum(1 for r in risks if r < 0.4) / n * 100)
+            med = round(sum(1 for r in risks if 0.4 <= r < 0.7) / n * 100)
+            hi  = 100 - low - med
+        else:
+            low = med = hi = 0
+        alerts = sum(1 for e in recent if e[3])
+        payload = json.dumps({
+            "rate": rate,
+            "total": _agg_total,
+            "avg_lat_ms": avg_lat,
+            "p95_lat_ms": p95_lat,
+            "alerts": alerts,
+            "risk": {"low": low, "med": med, "hi": hi},
+            "flags": list(_fraud_flags),
+            "samples": list(_recent_samples),
+            "history": list(_rate_history),
+        })
+
+    if _main_loop:
+        for q in _dashboard_queues[:]:
+            _main_loop.call_soon_threadsafe(q.put_nowait, payload)
+
+
+def _stats_pusher() -> None:
+    while True:
+        _time.sleep(0.2)
+        if _dashboard_queues:
+            _push_dashboard_stats()
 
 
 def produce(amount: float, time_s: float | None, source: str) -> str:
@@ -130,9 +216,21 @@ def _consume_once(consumer: "Consumer") -> None:
         "latency_s": latency,
     })
 
+    risk = data["risk_score"]
+    fraud = data["is_fraud"]
+    _agg_update(risk, latency, fraud)
+    with _agg_lock:
+        if fraud or risk > 0.7:
+            _fraud_flags.appendleft({"id": tx_id[:8], "risk": round(risk, 2), "label": "FRAUD" if fraud else "REVIEW"})
+        _recent_samples.appendleft({
+            "id": tx_id[:7],
+            "risk": round(risk, 4),
+            "lat_ms": round(latency * 1000) if latency is not None else None,
+            "fraud": fraud,
+        })
+
 
 def _consume_loop() -> None:
-    import time as _time
     retry = 0
     while True:
         consumer = None
@@ -163,6 +261,7 @@ def startup() -> None:
     global _producer, _main_loop, _consumer_thread
     _load_v_samples()
     _main_loop = asyncio.get_event_loop()
+    threading.Thread(target=_stats_pusher, daemon=True).start()
     if not SKIP_KAFKA:
         _producer = Producer({"bootstrap.servers": KAFKA_BOOTSTRAP})
         _consumer_thread = threading.Thread(target=_consume_loop, daemon=True)

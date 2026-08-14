@@ -1,9 +1,15 @@
+import os
+import urllib.error
+import urllib.request
+
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..services import kafka
 from ..services.db import Transaction, engine
+
+PRODUCER_CONTROL = os.getenv("PRODUCER_CONTROL_URL", "http://producer:8002")
 
 router = APIRouter()
 
@@ -85,6 +91,30 @@ def stats():
         total = s.query(Transaction).count()
         fraud = s.query(Transaction).filter_by(is_fraud=True).count()
         return {"total": total, "fraud": fraud, "fraud_rate": round(fraud / total, 4) if total else 0}
+
+
+def _producer_ctrl(action: str) -> str:
+    try:
+        req = urllib.request.Request(f"{PRODUCER_CONTROL}/{action}", method="POST")
+        with urllib.request.urlopen(req, timeout=2) as r:
+            return r.read().decode()
+    except (urllib.error.URLError, OSError):
+        return "unreachable"
+
+
+@router.post("/stream/pause")
+def stream_pause():
+    return {"status": _producer_ctrl("pause")}
+
+
+@router.post("/stream/resume")
+def stream_resume():
+    return {"status": _producer_ctrl("resume")}
+
+
+@router.get("/stream/status")
+def stream_status():
+    return {"status": _producer_ctrl("status")}
 
 
 @router.get("/livez")
