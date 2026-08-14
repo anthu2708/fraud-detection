@@ -16,6 +16,11 @@ service:
   port: 8000
   nodePort: null
 
+ingress:
+  enabled: false
+  host: ""
+  clusterIssuer: ""  # e.g. letsencrypt-prod — enables TLS when set
+
 resources:
   limits:
     cpu: 500m

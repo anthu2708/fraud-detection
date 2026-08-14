@@ -7,12 +7,22 @@ imagePullSecrets:
 
 env:
   KAFKA_BOOTSTRAP: "kafka:9092"
-  DATABASE_URL: "postgresql://fraud:fraud@postgres:5432/fraud"
+
+# DATABASE_URL comes from postgres-secret (created at deploy, not committed).
+# See deploy-action.md Phase D.
+envFrom:
+  - secretRef:
+      name: postgres-secret
 
 service:
   enabled: true
   port: 8000
   nodePort: 30000
+
+ingress:
+  enabled: true
+  host: fraud.anphung.dev
+  clusterIssuer: letsencrypt-prod  # cert-manager issues TLS (Phase E)
 
 livenessProbe:
   httpGet:
