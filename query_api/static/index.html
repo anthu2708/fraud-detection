@@ -11,7 +11,9 @@
 <div class="top-bar">
   <span class="top-title">FRAUD DETECTION <span class="dot" id="sse-dot"></span> <span id="sse-status" class="conn-text">connecting...</span></span>
   <div class="top-right">
+    <!-- ponytail: temporarily hidden, restore to re-enable pause/resume
     <button class="btn-stream" id="stream-btn" onclick="toggleStream()">⏸ Pause stream</button>
+    -->
     <div class="time-picker" id="time-picker">
       <button class="tp-btn" id="tp-btn" onclick="toggleTimePicker()"><span id="tp-label">Last 30s</span> ▾</button>
       <div class="tp-dropdown" id="tp-dropdown">
@@ -114,6 +116,7 @@
   </tbody>
 </table>
 
+<!-- ponytail: temporarily hidden, restore to re-enable manual submit
 <div class="submit-panel">
   <div class="section-label">MANUAL SUBMIT</div>
   <div class="field-row">
@@ -130,6 +133,7 @@
   <div class="status-line" id="m-status"></div>
   <div id="m-results"></div>
 </div>
+-->
 
 <script src="/static/app.js"></script>
 </body>

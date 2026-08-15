@@ -230,6 +230,7 @@ function updateSamples(samples) {
 function _applyStreamState(paused) {
   streamPaused = paused;
   const btn = document.getElementById('stream-btn');
+  if (!btn) return;  // ponytail: button may be hidden
   btn.textContent = paused ? '▶ Resume stream' : '⏸ Pause stream';
   btn.classList.toggle('paused', paused);
 }

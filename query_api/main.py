@@ -26,6 +26,16 @@ app.include_router(transactions.router)
 app.include_router(events.router)
 
 
+@app.get("/", response_class=HTMLResponse)
+def landing():
+    return (_STATIC / "landing.html").read_text(encoding="utf-8")
+
+
+@app.get("/about", response_class=HTMLResponse)
+def about():
+    return (_STATIC / "about.html").read_text(encoding="utf-8")
+
+
 @app.get("/demo", response_class=HTMLResponse)
 def demo():
-    return (_STATIC / "index.html").read_text()
+    return (_STATIC / "index.html").read_text(encoding="utf-8")

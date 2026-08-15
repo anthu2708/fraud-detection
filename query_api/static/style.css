@@ -151,7 +151,13 @@ canvas { display: block; width: 100%; }
   height: 140px;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
+#fraud-flags::-webkit-scrollbar { width: 6px; }
+#fraud-flags::-webkit-scrollbar-track { background: transparent; }
+#fraud-flags::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+#fraud-flags::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 .risk-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .risk-row:last-child { margin-bottom: 0; }
 .risk-lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.08em; width: 52px; flex-shrink: 0; }
