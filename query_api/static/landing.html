@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fraud Detection — Real-Time ML Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/site.css">
+<style>
+  /* ── interactive stack chips ── */
+  .chip { cursor:pointer; opacity:0; transform:translateY(6px);
+    animation:chipIn .4s ease forwards; transition:border-color .15s, box-shadow .15s, color .15s; }
+  @keyframes chipIn { to { opacity:1; transform:none; } }
+  .chip:hover { color:var(--text); border-color:var(--accent); }
+  .chip.active { color:#fff; border-color:var(--accent); background:rgba(59,130,246,.14);
+    box-shadow:0 0 0 1px var(--accent), 0 0 14px rgba(59,130,246,.45);
+    animation:chipIn .4s ease forwards, pulseGlow 2s ease-in-out infinite; }
+  @keyframes pulseGlow { 0%,100%{box-shadow:0 0 0 1px var(--accent),0 0 10px rgba(59,130,246,.35)}
+    50%{box-shadow:0 0 0 1px var(--accent),0 0 20px rgba(59,130,246,.65)} }
+
+  .chip-desc { margin-top:18px; min-height:2.4em; font-size:13px; color:#d4d4d8;
+    border-left:2px solid var(--accent); padding:4px 0 4px 14px; }
+  .chip-desc .who { color:var(--accent); font-weight:500; }
+
+  /* ── horizontal data pipeline ── */
+  .pipeline { display:flex; align-items:center; justify-content:center; margin:26px 0 4px;
+    overflow-x:auto; padding:14px 4px 18px; }
+  .stage { flex:none; width:130px; text-align:center; padding:14px 10px;
+    border:1px solid var(--border); border-radius:11px; background:var(--surface);
+    position:relative; transition:.2s; }
+  .stage .tier { position:absolute; top:-8px; left:50%; transform:translateX(-50%);
+    font-size:8px; letter-spacing:.18em; color:var(--muted); background:var(--bg); padding:0 7px; white-space:nowrap; }
+  .stage b { display:block; font-size:14px; letter-spacing:-.01em; }
+  .stage small { display:block; font-size:9.5px; color:var(--muted); margin-top:3px; line-height:1.35; }
+  .stage.lit { border-color:var(--accent); background:rgba(59,130,246,.15);
+    box-shadow:0 0 18px rgba(59,130,246,.5); transform:translateY(-2px); }
+
+  /* horizontal cable with light running through */
+  .cable { flex:none; width:34px; height:2px; background:var(--border); position:relative; overflow:hidden; }
+  .cable.short { width:24px; }
+  .cable::after { content:''; position:absolute; top:-2px; width:18px; height:6px; border-radius:3px;
+    background:linear-gradient(90deg, transparent, var(--accent), #bfdbfe, var(--accent), transparent);
+    box-shadow:0 0 12px var(--accent); animation:flow 1.4s linear infinite; }
+  .cable.short::after { animation-duration:1s; }
+  @keyframes flow { 0%{ transform:translateX(-20px); } 100%{ transform:translateX(36px); } }
+
+  /* fork → two consumers stacked at the end */
+  .fork { flex:none; display:flex; flex-direction:column; gap:14px; }
+  .branch { display:flex; align-items:center; }
+  .sink { flex:none; width:120px; background:var(--bg); text-align:center; padding:11px 9px;
+    border:1px solid var(--border); border-radius:10px; transition:.2s; }
+  .sink.consumer { border-style:dashed; }
+  .sink.lit { border-color:var(--accent); background:rgba(59,130,246,.15);
+    box-shadow:0 0 18px rgba(59,130,246,.5); }
+  .sink b { display:block; font-size:13px; }
+  .sink-tag { font-size:8px; letter-spacing:.14em; color:var(--muted); text-transform:uppercase; margin-bottom:5px; }
+
+  /* deployment layer — the platform everything runs on */
+  .platform { max-width:600px; margin:2px auto 0; text-align:center; position:relative;
+    padding:13px 18px; border:1px dashed var(--border); border-radius:11px;
+    background:rgba(255,255,255,.015); transition:.2s; }
+  .platform .tier { position:absolute; top:-8px; left:50%; transform:translateX(-50%);
+    font-size:8px; letter-spacing:.18em; color:var(--muted); background:var(--bg); padding:0 7px; }
+  .platform .plat-item { font-size:12px; color:var(--muted); }
+  .platform .plat-sep { color:var(--border); margin:0 6px; }
+  .platform.lit { border-style:solid; border-color:var(--accent); background:rgba(59,130,246,.12);
+    box-shadow:0 0 18px rgba(59,130,246,.4); }
+  .platform.lit .plat-item { color:var(--text); }
+
+  .hint { font-size:10px; color:var(--muted); margin-top:14px; text-align:center; letter-spacing:.03em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="status"><span class="dot"></span> Live · production deploy</div>
+
+  <h1>Real-time <span class="hl">fraud detection</span><br>on streaming transactions</h1>
+  <p class="tagline">
+    An event-driven ML pipeline that scores credit-card transactions for fraud as they
+    stream through Kafka — served on a live dashboard, deployed to Kubernetes via GitOps.
+  </p>
+
+  <div class="cta">
+    <a class="btn btn-primary" href="/demo">▶ Live dashboard</a>
+    <a class="btn btn-ghost" href="/about">About this project</a>
+    <a class="btn btn-ghost" href="https://github.com/anthu2708/fraud-detection" target="_blank" rel="noopener">Source ↗</a>
+  </div>
+
+  <div class="flow-label" style="margin-top:48px">// stack — hover or tap to trace it in the pipeline</div>
+  <div class="chips" id="chips">
+    <span class="chip" data-node="kafka"     data-desc="Event backbone — 3 topics: raw, manual (priority lane), scored.">Kafka</span>
+    <span class="chip" data-node="scoring"   data-desc="Isolation Forest — unsupervised anomaly detection, no fraud labels needed.">Isolation Forest</span>
+    <span class="chip" data-node="api"       data-desc="Query API — REST + Server-Sent Events pushing live metrics every 200ms.">FastAPI</span>
+    <span class="chip" data-node="postgres"  data-desc="Stores every scored transaction for history, stats and fraud lookups.">Postgres</span>
+    <span class="chip" data-node="platform" data-desc="Single-node Kubernetes (k3s) running the entire stack on one VM.">Kubernetes</span>
+    <span class="chip" data-node="platform" data-desc="ArgoCD auto-syncs the cluster from Git on every push — GitOps.">ArgoCD</span>
+    <span class="chip" data-node="platform" data-desc="One generic Helm chart packages all services, values per component.">Helm</span>
+    <span class="chip" data-node="platform" data-desc="cert-manager auto-issues Let's Encrypt TLS for the public domain.">cert-manager</span>
+  </div>
+  <div class="chip-desc" id="chip-desc"></div>
+
+  <div class="pipeline">
+    <div class="stage" id="n-producer"><span class="tier">INGEST</span><b>Producer</b><small>replays transactions</small></div>
+    <div class="cable"></div>
+    <div class="stage" id="n-kafka"><span class="tier">STREAM</span><b>Kafka</b><small>transactions.raw</small></div>
+    <div class="cable"></div>
+    <div class="stage" id="n-scoring"><span class="tier">SCORE</span><b>Isolation Forest</b><small>risk → scored topic</small></div>
+    <div class="cable"></div>
+    <div class="stage" id="n-api"><span class="tier">SERVE</span><b>Query API</b><small>consumes scored</small></div>
+    <div class="fork">
+      <div class="branch">
+        <div class="cable short"></div>
+        <div class="sink" id="n-postgres"><div class="sink-tag">persist</div><b>Postgres</b></div>
+      </div>
+      <div class="branch">
+        <div class="cable short"></div>
+        <div class="sink consumer" id="n-dashboard"><div class="sink-tag">consumer · SSE</div><b>Dashboard</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="platform" id="n-platform">
+    <span class="tier">DEPLOYMENT</span>
+    <span class="plat-item">Kubernetes (k3s)</span><span class="plat-sep">·</span>
+    <span class="plat-item">ArgoCD</span><span class="plat-sep">·</span>
+    <span class="plat-item">Helm</span><span class="plat-sep">·</span>
+    <span class="plat-item">cert-manager TLS</span>
+  </div>
+
+  <footer>
+    <span>Built by An Phung</span>
+    <span><a href="/about">How it works →</a></span>
+  </footer>
+</div>
+
+<script>
+  const chips = [...document.querySelectorAll('.chip')];
+  const descEl = document.getElementById('chip-desc');
+  const cells = [...document.querySelectorAll('.stage, .sink, .platform')];
+  const NEUTRAL = '<span style="color:var(--muted)">// hover or click a component to trace it</span>';
+
+  chips.forEach((c, i) => c.style.animationDelay = (i * 0.06) + 's');
+
+  function clear() {
+    chips.forEach(c => c.classList.remove('active'));
+    cells.forEach(n => n.classList.remove('lit'));
+    descEl.innerHTML = NEUTRAL;
+  }
+
+  function render(chip) {
+    chips.forEach(c => c.classList.toggle('active', c === chip));
+    cells.forEach(n => n.classList.remove('lit'));
+    if (chip.dataset.node) {
+      const n = document.getElementById('n-' + chip.dataset.node);
+      if (n) n.classList.add('lit');
+    }
+    descEl.innerHTML = '<span class="who">' + chip.textContent + '</span> — ' + chip.dataset.desc;
+  }
+
+  let locked = null;
+  chips.forEach(c => {
+    c.addEventListener('mouseenter', () => render(c));
+    c.addEventListener('click', () => { locked = (locked === c) ? null : c; locked ? render(c) : clear(); });
+    c.addEventListener('mouseleave', () => locked ? render(locked) : clear());
+  });
+  clear();   // no auto-selection on load
+</script>
+</body>
+</html>

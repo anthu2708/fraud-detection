@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About — Fraud Detection Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/site.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="status"><span class="dot"></span> <a class="inline" href="/" style="border:none;color:inherit">← Home</a></div>
+
+  <h1>About the <span class="hl">project</span></h1>
+  <p class="tagline">
+    A production-style, real-time fraud detection system built end to end — from streaming
+    ingestion to an ML scorer to a live dashboard, deployed on Kubernetes with GitOps.
+  </p>
+
+  <h2>The problem</h2>
+  <p>
+    Credit-card fraud is rare and highly imbalanced — under 0.2% of transactions in the
+    public <a class="inline" href="https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud" target="_blank" rel="noopener">Kaggle Credit Card Fraud</a>
+    dataset are fraudulent. Rather than train on scarce labels, this system uses an
+    <strong>unsupervised anomaly detector</strong> (Isolation Forest) that learns what
+    "normal" spending looks like and flags outliers in real time.
+  </p>
+
+  <h2>How it works</h2>
+  <div class="flow" style="margin-top:0">
+    <div class="flow-label">End-to-end flow</div>
+    <div class="pipe">
+      <span class="node">Producer</span><span class="arrow">→</span>
+      <span class="node">Kafka</span><span class="arrow">→</span>
+      <span class="node">Scoring (ML)</span><span class="arrow">→</span>
+      <span class="node">Query API</span><span class="arrow">→</span>
+      <span class="node">Postgres + SSE Dashboard</span>
+    </div>
+  </div>
+  <p style="margin-top:16px">
+    A <strong>producer</strong> replays held-out transactions into a Kafka topic. The
+    <strong>scoring</strong> service consumes them, runs the model, and publishes risk
+    scores to a second topic. The <strong>query API</strong> (FastAPI) persists results to
+    Postgres and pushes aggregated metrics to the dashboard over Server-Sent Events every
+    200&nbsp;ms — live rate, latency p95, risk distribution and fraud flags.
+  </p>
+
+  <h2>The model</h2>
+  <div class="rows">
+    <div class="row"><span class="k">Algorithm</span><span class="v">Isolation Forest (scikit-learn), unsupervised anomaly detection</span></div>
+    <div class="row"><span class="k">Preprocessing</span><span class="v"><code>RobustScaler</code> on Time/Amount, fit on normal-only rows to avoid label leakage</span></div>
+    <div class="row"><span class="k">Threshold</span><span class="v">Tuned for F2 (recall-weighted) with a minimum-precision floor</span></div>
+    <div class="row"><span class="k">Serving</span><span class="v">Replays only the held-out test split, so the model scores unseen transactions</span></div>
+  </div>
+
+  <h2>Architecture &amp; deployment</h2>
+  <div class="rows">
+    <div class="row"><span class="k">Streaming</span><span class="v">Kafka (KRaft) — raw, priority-manual, and scored topics</span></div>
+    <div class="row"><span class="k">Services</span><span class="v">Python 3.13 · FastAPI · confluent-kafka, packaged as containers</span></div>
+    <div class="row"><span class="k">Orchestration</span><span class="v">Single-node k3s (Kubernetes) on a cloud VM</span></div>
+    <div class="row"><span class="k">Delivery</span><span class="v">GitHub Actions → GHCR; ArgoCD + Image Updater sync from Git (GitOps)</span></div>
+    <div class="row"><span class="k">Packaging</span><span class="v">One generic Helm chart, per-service values</span></div>
+    <div class="row"><span class="k">TLS</span><span class="v">cert-manager + Let's Encrypt, Traefik ingress</span></div>
+  </div>
+
+  <div class="cta">
+    <a class="btn btn-primary" href="/demo">▶ Open live dashboard</a>
+    <a class="btn btn-ghost" href="https://github.com/anthu2708/fraud-detection" target="_blank" rel="noopener">Source ↗</a>
+  </div>
+
+  <footer>
+    <span>Built by An Phung</span>
+    <span><a href="/">← Home</a></span>
+  </footer>
+</div>
+</body>
+</html>
