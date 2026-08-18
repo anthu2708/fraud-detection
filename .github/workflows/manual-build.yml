@@ -21,45 +21,6 @@ on:
         default: master
 
 jobs:
-  build-scoring:
-    if: ${{ inputs.scoring == true }}
-    runs-on: ubuntu-latest
-    environment: production
-    permissions:
-      contents: write
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref }}
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - id: meta
-        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-      - uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: scoring/Dockerfile
-          push: true
-          tags: ghcr.io/${{ github.repository }}/scoring:${{ steps.meta.outputs.sha }}
-      - run: echo "Pushed scoring:${{ steps.meta.outputs.sha }}"
-      - name: Bump scoring image tag in helm values (on master)
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          for i in 1 2 3 4 5; do
-            git fetch origin master
-            git checkout -B master origin/master
-            sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-scoring.yaml
-            git add helm/fraud-detection/values-scoring.yaml
-            git commit -m "chore(deploy): bump scoring image to ${{ steps.meta.outputs.sha }} [skip ci]" || break
-            git push origin HEAD:master && break
-            sleep $((RANDOM % 5 + 1))
-          done
-
   build-producer:
     if: ${{ inputs.producer == true }}
     runs-on: ubuntu-latest
@@ -89,18 +50,53 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          for i in 1 2 3 4 5; do
-            git fetch origin master
-            git checkout -B master origin/master
-            sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-producer.yaml
-            git add helm/fraud-detection/values-producer.yaml
-            git commit -m "chore(deploy): bump producer image to ${{ steps.meta.outputs.sha }} [skip ci]" || break
-            git push origin HEAD:master && break
-            sleep $((RANDOM % 5 + 1))
-          done
+          git fetch origin master
+          git checkout -B master origin/master
+          sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-producer.yaml
+          git add helm/fraud-detection/values-producer.yaml
+          git commit -m "chore(deploy): bump producer image to ${{ steps.meta.outputs.sha }} [skip ci]"
+          git push origin HEAD:master
+
+  build-scoring:
+    needs: build-producer
+    if: ${{ !cancelled() && inputs.scoring == true }}
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: scoring/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}/scoring:${{ steps.meta.outputs.sha }}
+      - run: echo "Pushed scoring:${{ steps.meta.outputs.sha }}"
+      - name: Bump scoring image tag in helm values (on master)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin master
+          git checkout -B master origin/master
+          sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-scoring.yaml
+          git add helm/fraud-detection/values-scoring.yaml
+          git commit -m "chore(deploy): bump scoring image to ${{ steps.meta.outputs.sha }} [skip ci]"
+          git push origin HEAD:master
 
   build-query-api:
-    if: ${{ inputs['query-api'] == true }}
+    needs: [build-producer, build-scoring]
+    if: ${{ !cancelled() && inputs['query-api'] == true }}
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -128,12 +124,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          for i in 1 2 3 4 5; do
-            git fetch origin master
-            git checkout -B master origin/master
-            sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-query-api.yaml
-            git add helm/fraud-detection/values-query-api.yaml
-            git commit -m "chore(deploy): bump query-api image to ${{ steps.meta.outputs.sha }} [skip ci]" || break
-            git push origin HEAD:master && break
-            sleep $((RANDOM % 5 + 1))
-          done
+          git fetch origin master
+          git checkout -B master origin/master
+          sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-query-api.yaml
+          git add helm/fraud-detection/values-query-api.yaml
+          git commit -m "chore(deploy): bump query-api image to ${{ steps.meta.outputs.sha }} [skip ci]"
+          git push origin HEAD:master

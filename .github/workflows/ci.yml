@@ -53,7 +53,10 @@ jobs:
 
   # ── Step 3: build + push with SHA tag, then commit the new tag straight
   #            into the service's helm values file so ArgoCD deploys it
-  #            (no live-patching of Application objects, no ambiguity) ───────
+  #            (no live-patching of Application objects, no ambiguity).
+  #            Jobs run one after another (needs chain) so each git push
+  #            targets a branch tip no other job is racing to move —
+  #            no retry loop needed. ─────────────────────────────────────
   build-producer:
     needs: changes
     if: ${{ needs.changes.outputs.producer == 'true' }}
@@ -82,19 +85,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           BRANCH="${GITHUB_REF#refs/heads/}"
-          for i in 1 2 3 4 5; do
-            git fetch origin "$BRANCH"
-            git checkout -B "$BRANCH" "origin/$BRANCH"
-            sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-producer.yaml
-            git add helm/fraud-detection/values-producer.yaml
-            git commit -m "chore(deploy): bump producer image to ${{ steps.meta.outputs.sha }} [skip ci]" || break
-            git push origin "HEAD:$BRANCH" && break
-            sleep $((RANDOM % 5 + 1))
-          done
+          git fetch origin "$BRANCH"
+          git checkout -B "$BRANCH" "origin/$BRANCH"
+          sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-producer.yaml
+          git add helm/fraud-detection/values-producer.yaml
+          git commit -m "chore(deploy): bump producer image to ${{ steps.meta.outputs.sha }} [skip ci]"
+          git push origin "HEAD:$BRANCH"
 
   build-scoring:
-    needs: changes
-    if: ${{ needs.changes.outputs.scoring == 'true' }}
+    needs: [changes, build-producer]
+    if: ${{ !cancelled() && needs.changes.outputs.scoring == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -120,19 +120,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           BRANCH="${GITHUB_REF#refs/heads/}"
-          for i in 1 2 3 4 5; do
-            git fetch origin "$BRANCH"
-            git checkout -B "$BRANCH" "origin/$BRANCH"
-            sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-scoring.yaml
-            git add helm/fraud-detection/values-scoring.yaml
-            git commit -m "chore(deploy): bump scoring image to ${{ steps.meta.outputs.sha }} [skip ci]" || break
-            git push origin "HEAD:$BRANCH" && break
-            sleep $((RANDOM % 5 + 1))
-          done
+          git fetch origin "$BRANCH"
+          git checkout -B "$BRANCH" "origin/$BRANCH"
+          sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-scoring.yaml
+          git add helm/fraud-detection/values-scoring.yaml
+          git commit -m "chore(deploy): bump scoring image to ${{ steps.meta.outputs.sha }} [skip ci]"
+          git push origin "HEAD:$BRANCH"
 
   build-query-api:
-    needs: changes
-    if: ${{ needs.changes.outputs.query_api == 'true' }}
+    needs: [changes, build-producer, build-scoring]
+    if: ${{ !cancelled() && needs.changes.outputs.query_api == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -158,12 +155,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           BRANCH="${GITHUB_REF#refs/heads/}"
-          for i in 1 2 3 4 5; do
-            git fetch origin "$BRANCH"
-            git checkout -B "$BRANCH" "origin/$BRANCH"
-            sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-query-api.yaml
-            git add helm/fraud-detection/values-query-api.yaml
-            git commit -m "chore(deploy): bump query-api image to ${{ steps.meta.outputs.sha }} [skip ci]" || break
-            git push origin "HEAD:$BRANCH" && break
-            sleep $((RANDOM % 5 + 1))
-          done
+          git fetch origin "$BRANCH"
+          git checkout -B "$BRANCH" "origin/$BRANCH"
+          sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-query-api.yaml
+          git add helm/fraud-detection/values-query-api.yaml
+          git commit -m "chore(deploy): bump query-api image to ${{ steps.meta.outputs.sha }} [skip ci]"
+          git push origin "HEAD:$BRANCH"
