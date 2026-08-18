@@ -80,3 +80,33 @@ services:
       DATABASE_URL: postgresql://fraud:fraud@postgres:5432/fraud
     ports:
       - "8001:8000"
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_ROOT_URL: "http://localhost:8090/grafana"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_FEATURE_TOGGLES_ENABLE: "publicDashboards"
+    volumes:
+      - ./observability/grafana/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+      - ./observability/grafana/dashboard-provider.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
+      - ./observability/grafana/dashboards:/etc/grafana/provisioning/dashboards-json
+    ports:
+      - "3000:3000"
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on: [grafana]
+    volumes:
+      - ./observability/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8090:8090"
