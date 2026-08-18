@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/anthu2708/fraud-detection/producer
-  tag: latest
+  tag: 1ef8aee6fc6c630847ef95062294a34bfc816a92
 
 imagePullSecrets:
   - name: ghcr-secret

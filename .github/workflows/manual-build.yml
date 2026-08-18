@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v4
@@ -44,17 +44,28 @@ jobs:
           context: .
           file: scoring/Dockerfile
           push: true
-          tags: |
-            ghcr.io/${{ github.repository }}/scoring:latest
-            ghcr.io/${{ github.repository }}/scoring:${{ steps.meta.outputs.sha }}
+          tags: ghcr.io/${{ github.repository }}/scoring:${{ steps.meta.outputs.sha }}
       - run: echo "Pushed scoring:${{ steps.meta.outputs.sha }}"
+      - name: Bump scoring image tag in helm values (on master)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin master
+          git checkout master
+          sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-scoring.yaml
+          git add helm/fraud-detection/values-scoring.yaml
+          git commit -m "chore(deploy): bump scoring image to ${{ steps.meta.outputs.sha }} [skip ci]" || exit 0
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin master && git push origin HEAD:master && break
+            sleep $((RANDOM % 5 + 1))
+          done
 
   build-producer:
     if: ${{ inputs.producer == true }}
     runs-on: ubuntu-latest
     environment: production
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v4
@@ -72,17 +83,28 @@ jobs:
           context: .
           file: producer/Dockerfile
           push: true
-          tags: |
-            ghcr.io/${{ github.repository }}/producer:latest
-            ghcr.io/${{ github.repository }}/producer:${{ steps.meta.outputs.sha }}
+          tags: ghcr.io/${{ github.repository }}/producer:${{ steps.meta.outputs.sha }}
       - run: echo "Pushed producer:${{ steps.meta.outputs.sha }}"
+      - name: Bump producer image tag in helm values (on master)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin master
+          git checkout master
+          sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-producer.yaml
+          git add helm/fraud-detection/values-producer.yaml
+          git commit -m "chore(deploy): bump producer image to ${{ steps.meta.outputs.sha }} [skip ci]" || exit 0
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin master && git push origin HEAD:master && break
+            sleep $((RANDOM % 5 + 1))
+          done
 
   build-query-api:
     if: ${{ inputs['query-api'] == true }}
     runs-on: ubuntu-latest
     environment: production
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v4
@@ -100,7 +122,18 @@ jobs:
           context: .
           file: query_api/Dockerfile
           push: true
-          tags: |
-            ghcr.io/${{ github.repository }}/query-api:latest
-            ghcr.io/${{ github.repository }}/query-api:${{ steps.meta.outputs.sha }}
+          tags: ghcr.io/${{ github.repository }}/query-api:${{ steps.meta.outputs.sha }}
       - run: echo "Pushed query-api:${{ steps.meta.outputs.sha }}"
+      - name: Bump query-api image tag in helm values (on master)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin master
+          git checkout master
+          sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-query-api.yaml
+          git add helm/fraud-detection/values-query-api.yaml
+          git commit -m "chore(deploy): bump query-api image to ${{ steps.meta.outputs.sha }} [skip ci]" || exit 0
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin master && git push origin HEAD:master && break
+            sleep $((RANDOM % 5 + 1))
+          done
