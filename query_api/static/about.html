@@ -47,6 +47,13 @@
     200&nbsp;ms — live rate, latency p95, risk distribution and fraud flags.
   </p>
 
+  <h2>The services</h2>
+  <div class="rows">
+    <div class="row"><span class="k">Producer</span><span class="v">Replays the held-out test set onto <code>transactions.raw</code> at a configurable rate; exposes a small HTTP control endpoint to pause/resume the stream</span></div>
+    <div class="row"><span class="k">Scoring</span><span class="v">Consumes <code>transactions.raw</code> + a priority <code>transactions.manual</code> topic, scores each transaction with the Isolation Forest, publishes to <code>transactions.scored</code>; exports Prometheus metrics on its own port</span></div>
+    <div class="row"><span class="k">Query API</span><span class="v">FastAPI service — consumes scored transactions into Postgres, serves the REST endpoints + SSE stream, exposes its own <code>/metrics</code> for request rate/latency/errors, and hosts the static landing/demo pages</span></div>
+  </div>
+
   <h2>The model</h2>
   <div class="rows">
     <div class="row"><span class="k">Algorithm</span><span class="v">Isolation Forest (scikit-learn), unsupervised anomaly detection</span></div>
@@ -60,13 +67,15 @@
     <div class="row"><span class="k">Streaming</span><span class="v">Kafka (KRaft) — raw, priority-manual, and scored topics</span></div>
     <div class="row"><span class="k">Services</span><span class="v">Python 3.13 · FastAPI · confluent-kafka, packaged as containers</span></div>
     <div class="row"><span class="k">Orchestration</span><span class="v">Single-node k3s (Kubernetes) on a cloud VM</span></div>
-    <div class="row"><span class="k">Delivery</span><span class="v">GitHub Actions → GHCR; ArgoCD + Image Updater sync from Git (GitOps)</span></div>
+    <div class="row"><span class="k">Delivery</span><span class="v">GitHub Actions builds &amp; pushes to GHCR, then commits the new image tag into the Helm values in Git; ArgoCD auto-syncs from there (GitOps)</span></div>
     <div class="row"><span class="k">Packaging</span><span class="v">One generic Helm chart, per-service values</span></div>
+    <div class="row"><span class="k">Infrastructure</span><span class="v">Terraform manages the VM, its static IP, and the SSH firewall rule — imported from a hand-created instance, <code>terraform plan</code> stays clean</span></div>
+    <div class="row"><span class="k">Observability</span><span class="v">Prometheus scrapes app-level metrics; Grafana dashboards for throughput, scoring latency, fraud rate, and API request/error rates</span></div>
     <div class="row"><span class="k">TLS</span><span class="v">cert-manager + Let's Encrypt, Traefik ingress</span></div>
   </div>
 
   <div class="cta">
-    <a class="btn btn-primary" href="/demo">▶ Open live dashboard</a>
+    <a class="btn btn-primary" href="/grafana/public-dashboards/3399bdb2fed14edbad0e6b7882afc452" target="_blank" rel="noopener">▶ Monitor dashboard</a>
     <a class="btn btn-ghost" href="https://github.com/anthu2708/fraud-detection" target="_blank" rel="noopener">Source ↗</a>
   </div>
 
