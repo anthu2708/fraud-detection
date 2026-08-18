@@ -79,13 +79,16 @@ jobs:
       - name: Bump producer image tag in helm values
         if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
         run: |
-          sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-producer.yaml
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add helm/fraud-detection/values-producer.yaml
-          git commit -m "chore(deploy): bump producer image to ${{ steps.meta.outputs.sha }} [skip ci]" || exit 0
+          BRANCH="${GITHUB_REF#refs/heads/}"
           for i in 1 2 3 4 5; do
-            git pull --rebase origin "${GITHUB_REF#refs/heads/}" && git push origin "HEAD:${GITHUB_REF#refs/heads/}" && break
+            git fetch origin "$BRANCH"
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+            sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-producer.yaml
+            git add helm/fraud-detection/values-producer.yaml
+            git commit -m "chore(deploy): bump producer image to ${{ steps.meta.outputs.sha }} [skip ci]" || break
+            git push origin "HEAD:$BRANCH" && break
             sleep $((RANDOM % 5 + 1))
           done
 
@@ -114,13 +117,16 @@ jobs:
       - name: Bump scoring image tag in helm values
         if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
         run: |
-          sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-scoring.yaml
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add helm/fraud-detection/values-scoring.yaml
-          git commit -m "chore(deploy): bump scoring image to ${{ steps.meta.outputs.sha }} [skip ci]" || exit 0
+          BRANCH="${GITHUB_REF#refs/heads/}"
           for i in 1 2 3 4 5; do
-            git pull --rebase origin "${GITHUB_REF#refs/heads/}" && git push origin "HEAD:${GITHUB_REF#refs/heads/}" && break
+            git fetch origin "$BRANCH"
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+            sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-scoring.yaml
+            git add helm/fraud-detection/values-scoring.yaml
+            git commit -m "chore(deploy): bump scoring image to ${{ steps.meta.outputs.sha }} [skip ci]" || break
+            git push origin "HEAD:$BRANCH" && break
             sleep $((RANDOM % 5 + 1))
           done
 
@@ -149,12 +155,15 @@ jobs:
       - name: Bump query-api image tag in helm values
         if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
         run: |
-          sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-query-api.yaml
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add helm/fraud-detection/values-query-api.yaml
-          git commit -m "chore(deploy): bump query-api image to ${{ steps.meta.outputs.sha }} [skip ci]" || exit 0
+          BRANCH="${GITHUB_REF#refs/heads/}"
           for i in 1 2 3 4 5; do
-            git pull --rebase origin "${GITHUB_REF#refs/heads/}" && git push origin "HEAD:${GITHUB_REF#refs/heads/}" && break
+            git fetch origin "$BRANCH"
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+            sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-query-api.yaml
+            git add helm/fraud-detection/values-query-api.yaml
+            git commit -m "chore(deploy): bump query-api image to ${{ steps.meta.outputs.sha }} [skip ci]" || break
+            git push origin "HEAD:$BRANCH" && break
             sleep $((RANDOM % 5 + 1))
           done
