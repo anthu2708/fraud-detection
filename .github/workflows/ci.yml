@@ -51,13 +51,18 @@ jobs:
       - run: ruff check src/ tests/ query_api/ scoring/ producer/
       - run: pytest tests/ -v
 
-  # ── Step 3: build + push with SHA tag (Image Updater picks it up) ─────────
+  # ── Step 3: build + push with SHA tag, then commit the new tag straight
+  #            into the service's helm values file so ArgoCD deploys it
+  #            (no live-patching of Application objects, no ambiguity).
+  #            Jobs run one after another (needs chain) so each git push
+  #            targets a branch tip no other job is racing to move —
+  #            no retry loop needed. ─────────────────────────────────────
   build-producer:
     needs: changes
     if: ${{ needs.changes.outputs.producer == 'true' }}
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v4
@@ -73,16 +78,28 @@ jobs:
           context: .
           file: producer/Dockerfile
           push: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
-          tags: |
-            ghcr.io/${{ github.repository }}/producer:latest
-            ghcr.io/${{ github.repository }}/producer:${{ steps.meta.outputs.sha }}
+          tags: ghcr.io/${{ github.repository }}/producer:${{ steps.meta.outputs.sha }}
+      - name: Bump producer image tag in helm values
+        if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local --unset-all http.https://github.com/.extraheader || true
+          git remote set-url origin https://x-access-token:${{ secrets.DEPLOY_PAT }}@github.com/${{ github.repository }}.git
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          git fetch origin "$BRANCH"
+          git checkout -B "$BRANCH" "origin/$BRANCH"
+          sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-producer.yaml
+          git add helm/fraud-detection/values-producer.yaml
+          git commit -m "chore(deploy): bump producer image to ${{ steps.meta.outputs.sha }} [skip ci]"
+          git push origin "HEAD:$BRANCH"
 
   build-scoring:
-    needs: changes
-    if: ${{ needs.changes.outputs.scoring == 'true' }}
+    needs: [changes, build-producer]
+    if: ${{ !cancelled() && needs.changes.outputs.scoring == 'true' }}
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v4
@@ -98,16 +115,28 @@ jobs:
           context: .
           file: scoring/Dockerfile
           push: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
-          tags: |
-            ghcr.io/${{ github.repository }}/scoring:latest
-            ghcr.io/${{ github.repository }}/scoring:${{ steps.meta.outputs.sha }}
+          tags: ghcr.io/${{ github.repository }}/scoring:${{ steps.meta.outputs.sha }}
+      - name: Bump scoring image tag in helm values
+        if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local --unset-all http.https://github.com/.extraheader || true
+          git remote set-url origin https://x-access-token:${{ secrets.DEPLOY_PAT }}@github.com/${{ github.repository }}.git
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          git fetch origin "$BRANCH"
+          git checkout -B "$BRANCH" "origin/$BRANCH"
+          sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-scoring.yaml
+          git add helm/fraud-detection/values-scoring.yaml
+          git commit -m "chore(deploy): bump scoring image to ${{ steps.meta.outputs.sha }} [skip ci]"
+          git push origin "HEAD:$BRANCH"
 
   build-query-api:
-    needs: changes
-    if: ${{ needs.changes.outputs.query_api == 'true' }}
+    needs: [changes, build-producer, build-scoring]
+    if: ${{ !cancelled() && needs.changes.outputs.query_api == 'true' }}
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v4
@@ -123,6 +152,18 @@ jobs:
           context: .
           file: query_api/Dockerfile
           push: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
-          tags: |
-            ghcr.io/${{ github.repository }}/query-api:latest
-            ghcr.io/${{ github.repository }}/query-api:${{ steps.meta.outputs.sha }}
+          tags: ghcr.io/${{ github.repository }}/query-api:${{ steps.meta.outputs.sha }}
+      - name: Bump query-api image tag in helm values
+        if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local --unset-all http.https://github.com/.extraheader || true
+          git remote set-url origin https://x-access-token:${{ secrets.DEPLOY_PAT }}@github.com/${{ github.repository }}.git
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          git fetch origin "$BRANCH"
+          git checkout -B "$BRANCH" "origin/$BRANCH"
+          sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-query-api.yaml
+          git add helm/fraud-detection/values-query-api.yaml
+          git commit -m "chore(deploy): bump query-api image to ${{ steps.meta.outputs.sha }} [skip ci]"
+          git push origin "HEAD:$BRANCH"
