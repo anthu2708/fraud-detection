@@ -50,6 +50,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local --unset-all http.https://github.com/.extraheader || true
+          git remote set-url origin https://x-access-token:${{ secrets.DEPLOY_PAT }}@github.com/${{ github.repository }}.git
           git fetch origin master
           git checkout -B master origin/master
           sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-producer.yaml
@@ -87,6 +89,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local --unset-all http.https://github.com/.extraheader || true
+          git remote set-url origin https://x-access-token:${{ secrets.DEPLOY_PAT }}@github.com/${{ github.repository }}.git
           git fetch origin master
           git checkout -B master origin/master
           sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-scoring.yaml
@@ -124,6 +128,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local --unset-all http.https://github.com/.extraheader || true
+          git remote set-url origin https://x-access-token:${{ secrets.DEPLOY_PAT }}@github.com/${{ github.repository }}.git
           git fetch origin master
           git checkout -B master origin/master
           sed -i "s|^  tag: .*|  tag: ${{ steps.meta.outputs.sha }}|" helm/fraud-detection/values-query-api.yaml
