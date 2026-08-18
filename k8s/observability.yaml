@@ -135,36 +135,94 @@ data:
       "time": { "from": "now-1h", "to": "now" },
       "panels": [
         {
-          "id": 1, "title": "Throughput (tx/s)", "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "id": 1, "title": "Total Scored", "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{ "refId": "A", "expr": "sum(scoring_transactions_total)", "instant": true }],
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "colorMode": "value", "graphMode": "area", "textMode": "auto"
+          }
+        },
+        {
+          "id": 2, "title": "Fraud Rate (5m)", "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{ "refId": "A", "expr": "sum(rate(scoring_fraud_flagged_total[5m])) / sum(rate(scoring_transactions_total[5m]))" }],
+          "fieldConfig": { "defaults": { "unit": "percentunit" } },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "colorMode": "value", "graphMode": "area", "textMode": "auto"
+          }
+        },
+        {
+          "id": 3, "title": "query-api", "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{ "refId": "A", "expr": "up{job=\"query-api\"}", "instant": true }],
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }],
+              "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "red" }, { "value": 1, "color": "green" }] }
+            }
+          },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "textMode": "value" }
+        },
+        {
+          "id": 4, "title": "scoring", "type": "stat",
+          "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{ "refId": "A", "expr": "up{job=\"scoring\"}", "instant": true }],
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }],
+              "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "red" }, { "value": 1, "color": "green" }] }
+            }
+          },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "textMode": "value" }
+        },
+        {
+          "id": 5, "title": "Throughput (tx/s)", "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
             { "refId": "A", "expr": "sum(rate(scoring_transactions_total[1m]))", "legendFormat": "scored/s" }
           ]
         },
         {
-          "id": 2, "title": "Scoring latency (p50/p95)", "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "id": 6, "title": "Scoring Latency Distribution", "type": "heatmap",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
-            { "refId": "A", "expr": "histogram_quantile(0.50, sum(rate(scoring_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p50" },
-            { "refId": "B", "expr": "histogram_quantile(0.95, sum(rate(scoring_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p95" }
-          ]
+            { "refId": "A", "expr": "sum(rate(scoring_latency_seconds_bucket[1m])) by (le)", "format": "heatmap", "legendFormat": "{{le}}" }
+          ],
+          "options": { "calculate": false, "color": { "scheme": "Spectral" } }
         },
         {
-          "id": 3, "title": "Fraud rate", "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "id": 7, "title": "Fraud Rate Over Time", "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": { "defaults": { "unit": "percentunit" } },
           "targets": [
             { "refId": "A", "expr": "sum(rate(scoring_fraud_flagged_total[5m])) / sum(rate(scoring_transactions_total[5m]))", "legendFormat": "fraud ratio" }
           ]
         },
         {
-          "id": 4, "title": "Transactions by source", "type": "timeseries",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "id": 8, "title": "Transactions by Source", "type": "piechart",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
-            { "refId": "A", "expr": "sum(rate(scoring_transactions_total[1m])) by (source)", "legendFormat": "{{source}}" }
+            { "refId": "A", "expr": "sum(scoring_transactions_total) by (source)", "instant": true, "legendFormat": "{{source}}" }
+          ],
+          "options": { "legend": { "displayMode": "list", "placement": "right" } }
+        },
+        {
+          "id": 9, "title": "Scoring Latency (p50/p95)", "type": "timeseries",
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "histogram_quantile(0.50, sum(rate(scoring_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p50" },
+            { "refId": "B", "expr": "histogram_quantile(0.95, sum(rate(scoring_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p95" }
           ]
         }
       ]
