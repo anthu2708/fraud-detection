@@ -14,6 +14,9 @@ data:
     global:
       scrape_interval: 15s
     scrape_configs:
+      - job_name: prometheus
+        static_configs:
+          - targets: ["localhost:9090"]
       - job_name: query-api
         metrics_path: /metrics
         static_configs:
@@ -136,7 +139,7 @@ data:
           "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
-            { "expr": "sum(rate(scoring_transactions_total[1m]))", "legendFormat": "scored/s" }
+            { "refId": "A", "expr": "sum(rate(scoring_transactions_total[1m]))", "legendFormat": "scored/s" }
           ]
         },
         {
@@ -144,8 +147,8 @@ data:
           "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
-            { "expr": "histogram_quantile(0.50, sum(rate(scoring_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p50" },
-            { "expr": "histogram_quantile(0.95, sum(rate(scoring_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p95" }
+            { "refId": "A", "expr": "histogram_quantile(0.50, sum(rate(scoring_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p50" },
+            { "refId": "B", "expr": "histogram_quantile(0.95, sum(rate(scoring_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p95" }
           ]
         },
         {
@@ -153,7 +156,7 @@ data:
           "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
-            { "expr": "sum(rate(scoring_fraud_flagged_total[5m])) / sum(rate(scoring_transactions_total[5m]))", "legendFormat": "fraud ratio" }
+            { "refId": "A", "expr": "sum(rate(scoring_fraud_flagged_total[5m])) / sum(rate(scoring_transactions_total[5m]))", "legendFormat": "fraud ratio" }
           ]
         },
         {
@@ -161,7 +164,7 @@ data:
           "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
-            { "expr": "sum(rate(scoring_transactions_total[1m])) by (source)", "legendFormat": "{{source}}" }
+            { "refId": "A", "expr": "sum(rate(scoring_transactions_total[1m])) by (source)", "legendFormat": "{{source}}" }
           ]
         }
       ]
@@ -180,7 +183,7 @@ data:
           "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
-            { "expr": "sum(rate(http_requests_total[1m])) by (handler)", "legendFormat": "{{handler}}" }
+            { "refId": "A", "expr": "sum(rate(http_requests_total[1m])) by (handler)", "legendFormat": "{{handler}}" }
           ]
         },
         {
@@ -188,7 +191,7 @@ data:
           "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
-            { "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, handler))", "legendFormat": "{{handler}}" }
+            { "refId": "A", "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, handler))", "legendFormat": "{{handler}}" }
           ]
         },
         {
@@ -196,7 +199,7 @@ data:
           "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
-            { "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m]))", "legendFormat": "5xx/s" }
+            { "refId": "A", "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m]))", "legendFormat": "5xx/s" }
           ]
         }
       ]
