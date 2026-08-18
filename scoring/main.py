@@ -2,6 +2,7 @@ import json
 import os
 import signal
 import time
+from datetime import datetime, timezone
 
 import joblib
 import numpy as np
@@ -13,6 +14,7 @@ MANUAL_TOPIC = "transactions.manual"
 OUT_TOPIC = "transactions.scored"
 MODEL_PATH = os.getenv("MODEL_PATH", "models/isolation_forest_v2.pkl")
 MODEL_VERSION = os.getenv("MODEL_VERSION", "v2")
+STALE_THRESHOLD_S = 5.0
 
 _shutdown = False
 
@@ -108,17 +110,31 @@ def main():
 
             t_score = time.perf_counter()
             tx = json.loads(msg.value())
+
+            # raw/auto topic only: drop backlog instead of grinding through it —
+            # keeps the live feed fresh after any producer/scoring lag (e.g. a
+            # Kafka restart), same "no backlog" spirit as the manual lane.
+            if active is auto_consumer and (sent_at := tx.get("sent_at")):
+                try:
+                    sent = datetime.fromisoformat(sent_at)
+                    age_s = (datetime.now(timezone.utc) - sent).total_seconds()
+                    if age_s > STALE_THRESHOLD_S:
+                        active.commit(asynchronous=True)
+                        continue
+                except ValueError:
+                    pass
+
             missing = _validate(tx, artifact["features"])
             if missing:
                 print(f"[scoring] WARN skipping tx — missing features: {missing}")
-                active.commit(asynchronous=False)
+                active.commit(asynchronous=True)
                 continue
             result = score(artifact, tx)
             latency_ms = (time.perf_counter() - t_score) * 1000
 
             producer.produce(OUT_TOPIC, key=result["transaction_id"], value=json.dumps(result))
-            producer.flush()
-            active.commit(asynchronous=False)
+            producer.poll(0)
+            active.commit(asynchronous=True)
 
             count += 1
             if result["is_fraud"]:
