@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/anthu2708/fraud-detection/scoring
-  tag: 9110981c73d646c523d0e6517b4e02232ad1d1ef
+  tag: 1ee34c2c6095b8e82e12bf7ca4ecbc82f56eca0c
 
 imagePullSecrets:
   - name: ghcr-secret
