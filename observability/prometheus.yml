@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 5s
+scrape_configs:
+  - job_name: query-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["query_api:8000"]
+  - job_name: scoring
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["scoring:9100"]

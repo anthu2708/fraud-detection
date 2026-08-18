@@ -1,0 +1,43 @@
+{
+  "title": "Fraud Pipeline Overview",
+  "uid": "fraud-pipeline-overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "title": "Throughput (tx/s)", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(rate(scoring_transactions_total[1m]))", "legendFormat": "scored/s" }
+      ]
+    },
+    {
+      "id": 2, "title": "Scoring latency (p50/p95)", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum(rate(scoring_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, sum(rate(scoring_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p95" }
+      ]
+    },
+    {
+      "id": 3, "title": "Fraud rate", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(rate(scoring_fraud_flagged_total[5m])) / sum(rate(scoring_transactions_total[5m]))", "legendFormat": "fraud ratio" }
+      ]
+    },
+    {
+      "id": 4, "title": "Transactions by source", "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(rate(scoring_transactions_total[1m])) by (source)", "legendFormat": "{{source}}" }
+      ]
+    }
+  ]
+}

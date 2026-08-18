@@ -229,6 +229,18 @@ spec:
                   key: admin-password
             - name: GF_AUTH_ANONYMOUS_ENABLED
               value: "false"
+            # Served under fraud.anphung.dev/grafana (path, not a subdomain)
+            # — the ingress does NOT strip the /grafana prefix, so Grafana
+            # itself needs to know it's not at the domain root.
+            - name: GF_SERVER_ROOT_URL
+              value: "https://fraud.anphung.dev/grafana"
+            - name: GF_SERVER_SERVE_FROM_SUB_PATH
+              value: "true"
+            # Public Dashboards: lets a specific dashboard be viewed via a
+            # no-login link (Share > Public dashboard in the Grafana UI)
+            # without opening up the rest of Grafana.
+            - name: GF_FEATURE_TOGGLES_ENABLE
+              value: "publicDashboards"
           resources:
             requests:
               cpu: 100m
@@ -269,21 +281,20 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: grafana
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+  # No cert-manager annotation / tls block here on purpose: this shares the
+  # fraud.anphung.dev hostname with the query-api ingress, which already
+  # requests a cert for that host (query-api-tls). Traefik matches TLS certs
+  # by SNI hostname across all Ingress objects, not per-object, so a second
+  # cert request for the same host would just be redundant.
 spec:
   rules:
-    - host: fraud-grafana.anphung.dev
+    - host: fraud.anphung.dev
       http:
         paths:
-          - path: /
+          - path: /grafana
             pathType: Prefix
             backend:
               service:
                 name: grafana
                 port:
                   number: 3000
-  tls:
-    - hosts:
-        - fraud-grafana.anphung.dev
-      secretName: grafana-tls
