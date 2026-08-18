@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from .routers import events, transactions
 from .services import db, kafka
@@ -24,6 +25,8 @@ app = FastAPI(title="Fraud Detection Query API", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=_STATIC), name="static")
 app.include_router(transactions.router)
 app.include_router(events.router)
+
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 
 @app.get("/", response_class=HTMLResponse)

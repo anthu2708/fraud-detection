@@ -4,3 +4,4 @@ uvicorn[standard]>=0.29
 psycopg2-binary>=2.9
 sqlalchemy>=2.0
 aiofiles>=23.0
+prometheus-fastapi-instrumentator>=7.0,<8.0

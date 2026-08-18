@@ -10,6 +10,11 @@ env:
   MODEL_PATH: "/app/models/isolation_forest_v2.pkl"
   MODEL_VERSION: "v2"
   PYTHONUNBUFFERED: "1"
+  METRICS_PORT: "9100"
+
+service:
+  enabled: true
+  port: 9100
 
 volumeMounts:
   - name: models

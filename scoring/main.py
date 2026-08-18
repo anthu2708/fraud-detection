@@ -6,6 +6,7 @@ import time
 import joblib
 import numpy as np
 from confluent_kafka import Consumer, KafkaError, Producer
+from prometheus_client import Counter, Histogram, start_http_server
 
 KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
 IN_TOPIC = "transactions.raw"
@@ -13,6 +14,11 @@ MANUAL_TOPIC = "transactions.manual"
 OUT_TOPIC = "transactions.scored"
 MODEL_PATH = os.getenv("MODEL_PATH", "models/isolation_forest_v2.pkl")
 MODEL_VERSION = os.getenv("MODEL_VERSION", "v2")
+METRICS_PORT = int(os.getenv("METRICS_PORT", "9100"))
+
+SCORED_TOTAL = Counter("scoring_transactions_total", "Transactions scored", ["source"])
+FRAUD_TOTAL = Counter("scoring_fraud_flagged_total", "Transactions flagged as fraud", ["source"])
+SCORING_LATENCY = Histogram("scoring_latency_seconds", "Time to score one transaction")
 
 _shutdown = False
 
@@ -73,6 +79,8 @@ def _make_consumer(group_id: str, offset_reset: str) -> Consumer:
 
 
 def main():
+    start_http_server(METRICS_PORT)
+    print(f"[scoring] metrics on :{METRICS_PORT}/metrics")
     artifact = load_model(MODEL_PATH)
 
     # manual topic: latest only — priority lane, no backlog
@@ -114,15 +122,19 @@ def main():
                 active.commit(asynchronous=False)
                 continue
             result = score(artifact, tx)
-            latency_ms = (time.perf_counter() - t_score) * 1000
+            latency_s = time.perf_counter() - t_score
+            latency_ms = latency_s * 1000
 
             producer.produce(OUT_TOPIC, key=result["transaction_id"], value=json.dumps(result))
             producer.flush()
             active.commit(asynchronous=False)
 
             count += 1
+            SCORED_TOTAL.labels(source=result["source"]).inc()
+            SCORING_LATENCY.observe(latency_s)
             if result["is_fraud"]:
                 fraud_count += 1
+                FRAUD_TOTAL.labels(source=result["source"]).inc()
 
             if count == 1 or count % 1_000 == 0:
                 elapsed = time.perf_counter() - t0
