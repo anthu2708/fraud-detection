@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/anthu2708/fraud-detection/query-api
-  tag: be77eb9df3e69d836d288ac926338bfc1b1710f0
+  tag: 1ee34c2c6095b8e82e12bf7ca4ecbc82f56eca0c
 
 imagePullSecrets:
   - name: ghcr-secret
