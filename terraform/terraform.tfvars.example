@@ -1,0 +1,5 @@
+# Copy this file to terraform.tfvars (gitignored, never commit it — it
+# holds a real person's public IP) and fill in the real value.
+# Get your current public IP with: curl https://api.ipify.org
+
+ssh_allowed_source_ip = "YOUR_IP_HERE/32"
