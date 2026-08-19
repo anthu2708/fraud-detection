@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from confluent_kafka import Consumer, KafkaError, Producer
+from prometheus_client import Histogram
 from sqlalchemy.orm import Session
 
 from .db import Transaction, engine
@@ -19,6 +20,12 @@ SCORED_TOPIC = "transactions.scored"
 RAW_TOPIC = "transactions.raw"
 MANUAL_TOPIC = "transactions.manual"
 SKIP_KAFKA = os.getenv("SKIP_KAFKA", "false").lower() == "true"
+
+E2E_LATENCY = Histogram(
+    "pipeline_e2e_latency_seconds",
+    "End-to-end latency from producer sent_at to query-api serve",
+    ["source"],
+)
 
 _producer: Producer | None = None
 _sse_queues: list[asyncio.Queue] = []
@@ -203,6 +210,7 @@ def _consume_once(consumer: "Consumer") -> None:
     if submitted_at:
         sub = submitted_at if submitted_at.tzinfo else submitted_at.replace(tzinfo=timezone.utc)
         latency = round((scored_at - sub).total_seconds(), 2)
+        E2E_LATENCY.labels(source=source).observe(latency)
 
     push_event({
         "transaction_id": tx_id,
