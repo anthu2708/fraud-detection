@@ -217,12 +217,65 @@ data:
           "options": { "legend": { "displayMode": "list", "placement": "right" } }
         },
         {
+          "id": 13, "title": "Current Scoring Latency (p50)", "type": "stat",
+          "gridPos": { "h": 3, "w": 5, "x": 0, "y": 20 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{ "refId": "A", "expr": "histogram_quantile(0.50, sum(rate(scoring_latency_seconds_bucket[1m])) by (le))", "instant": true }],
+          "fieldConfig": { "defaults": { "unit": "s" } },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "colorMode": "value", "graphMode": "area", "textMode": "auto"
+          }
+        },
+        {
+          "id": 14, "title": "Current Scoring Latency (p95)", "type": "stat",
+          "gridPos": { "h": 3, "w": 5, "x": 0, "y": 23 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{ "refId": "A", "expr": "histogram_quantile(0.95, sum(rate(scoring_latency_seconds_bucket[1m])) by (le))", "instant": true }],
+          "fieldConfig": { "defaults": { "unit": "s" } },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "colorMode": "value", "graphMode": "area", "textMode": "auto"
+          }
+        },
+        {
           "id": 9, "title": "Scoring Latency (p50/p95)", "type": "timeseries",
-          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+          "gridPos": { "h": 6, "w": 19, "x": 5, "y": 20 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "targets": [
             { "refId": "A", "expr": "histogram_quantile(0.50, sum(rate(scoring_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p50" },
             { "refId": "B", "expr": "histogram_quantile(0.95, sum(rate(scoring_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p95" }
+          ]
+        },
+        {
+          "id": 11, "title": "Current E2E Latency (p50)", "type": "stat",
+          "gridPos": { "h": 3, "w": 5, "x": 19, "y": 26 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{ "refId": "A", "expr": "histogram_quantile(0.50, sum(rate(pipeline_e2e_latency_seconds_bucket[1m])) by (le))", "instant": true }],
+          "fieldConfig": { "defaults": { "unit": "s" } },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "colorMode": "value", "graphMode": "area", "textMode": "auto"
+          }
+        },
+        {
+          "id": 12, "title": "Current E2E Latency (p95)", "type": "stat",
+          "gridPos": { "h": 3, "w": 5, "x": 19, "y": 29 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [{ "refId": "A", "expr": "histogram_quantile(0.95, sum(rate(pipeline_e2e_latency_seconds_bucket[1m])) by (le))", "instant": true }],
+          "fieldConfig": { "defaults": { "unit": "s" } },
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "colorMode": "value", "graphMode": "area", "textMode": "auto"
+          }
+        },
+        {
+          "id": 10, "title": "End-to-End Latency: Producer → Serve (p50/p95)", "type": "timeseries",
+          "gridPos": { "h": 6, "w": 19, "x": 0, "y": 26 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "histogram_quantile(0.50, sum(rate(pipeline_e2e_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p50" },
+            { "refId": "B", "expr": "histogram_quantile(0.95, sum(rate(pipeline_e2e_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p95" }
           ]
         }
       ]
