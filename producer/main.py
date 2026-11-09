@@ -4,7 +4,7 @@ import os
 import threading
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from confluent_kafka import Producer
@@ -82,7 +82,7 @@ def main():
 
                 tx = {k: float(v) for k, v in row.items() if k != "Class"}
                 tx["transaction_id"] = str(uuid.uuid4())
-                tx["sent_at"] = datetime.now(timezone.utc).isoformat()
+                tx["sent_at"] = datetime.now(UTC).isoformat()
                 tx["source"] = "auto"
 
                 producer.produce(TOPIC, key=tx["transaction_id"], value=json.dumps(tx))

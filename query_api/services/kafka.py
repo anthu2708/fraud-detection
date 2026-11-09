@@ -6,7 +6,7 @@ import threading
 import time as _time
 import uuid
 from collections import deque
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from confluent_kafka import Consumer, KafkaError, Producer
@@ -166,7 +166,7 @@ def _stats_pusher() -> None:
 def produce(amount: float, time_s: float | None, source: str) -> str:
     if _producer is None:
         raise RuntimeError("Kafka unavailable")
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     t = time_s if time_s is not None else (now.hour * 3600 + now.minute * 60 + now.second)
     tx_id = str(uuid.uuid4())
     tx = {
@@ -222,10 +222,10 @@ def _consume_once(consumer: "Consumer") -> None:
         ))
         s.commit()
 
-    scored_at = datetime.now(timezone.utc)
+    scored_at = datetime.now(UTC)
     latency = None
     if submitted_at:
-        sub = submitted_at if submitted_at.tzinfo else submitted_at.replace(tzinfo=timezone.utc)
+        sub = submitted_at if submitted_at.tzinfo else submitted_at.replace(tzinfo=UTC)
         latency = round((scored_at - sub).total_seconds(), 2)
         E2E_LATENCY.labels(source=source).observe(latency)
 
