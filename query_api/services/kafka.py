@@ -16,6 +16,23 @@ from sqlalchemy.orm import Session
 from .db import Transaction, engine
 
 KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
+
+
+def kafka_config(**extra) -> dict:
+    """Base librdkafka config; adds SASL_SSL when KAFKA_SASL_USERNAME is set (e.g. Aiven)."""
+    config = {"bootstrap.servers": KAFKA_BOOTSTRAP, **extra}
+    if sasl_username := os.getenv("KAFKA_SASL_USERNAME"):
+        config.update({
+            "security.protocol": "SASL_SSL",
+            "sasl.mechanisms": os.getenv("KAFKA_SASL_MECHANISM", "SCRAM-SHA-256"),
+            "sasl.username": sasl_username,
+            "sasl.password": os.getenv("KAFKA_SASL_PASSWORD", ""),
+        })
+        if ca_location := os.getenv("KAFKA_SSL_CA_LOCATION"):
+            config["ssl.ca.location"] = ca_location
+    return config
+
+
 SCORED_TOPIC = "transactions.scored"
 RAW_TOPIC = "transactions.raw"
 MANUAL_TOPIC = "transactions.manual"
@@ -243,11 +260,10 @@ def _consume_loop() -> None:
     while True:
         consumer = None
         try:
-            consumer = Consumer({
-                "bootstrap.servers": KAFKA_BOOTSTRAP,
+            consumer = Consumer(kafka_config(**{
                 "group.id": "query-api",
                 "auto.offset.reset": "latest",
-            })
+            }))
             consumer.subscribe([SCORED_TOPIC])
             retry = 0
             while True:
@@ -271,7 +287,7 @@ def startup() -> None:
     _main_loop = asyncio.get_event_loop()
     threading.Thread(target=_stats_pusher, daemon=True).start()
     if not SKIP_KAFKA:
-        _producer = Producer({"bootstrap.servers": KAFKA_BOOTSTRAP})
+        _producer = Producer(kafka_config())
         _consumer_thread = threading.Thread(target=_consume_loop, daemon=True)
         _consumer_thread.start()
 

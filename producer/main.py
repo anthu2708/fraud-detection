@@ -10,6 +10,23 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from confluent_kafka import Producer
 
 KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
+
+
+def kafka_config(**extra) -> dict:
+    """Base librdkafka config; adds SASL_SSL when KAFKA_SASL_USERNAME is set (e.g. Aiven)."""
+    config = {"bootstrap.servers": KAFKA_BOOTSTRAP, **extra}
+    if sasl_username := os.getenv("KAFKA_SASL_USERNAME"):
+        config.update({
+            "security.protocol": "SASL_SSL",
+            "sasl.mechanisms": os.getenv("KAFKA_SASL_MECHANISM", "SCRAM-SHA-256"),
+            "sasl.username": sasl_username,
+            "sasl.password": os.getenv("KAFKA_SASL_PASSWORD", ""),
+        })
+        if ca_location := os.getenv("KAFKA_SSL_CA_LOCATION"):
+            config["ssl.ca.location"] = ca_location
+    return config
+
+
 TOPIC = "transactions.raw"
 DATA_PATH = os.getenv("DATA_PATH", "data/creditcard_test.csv")
 TX_PER_SECOND = int(os.getenv("TX_PER_SECOND", "10"))
@@ -49,7 +66,7 @@ def main():
     threading.Thread(target=_start_control, daemon=True).start()
     print(f"[producer] control server on :{CONTROL_PORT}")
 
-    producer = Producer({"bootstrap.servers": KAFKA_BOOTSTRAP})
+    producer = Producer(kafka_config())
     delay = 1.0 / TX_PER_SECOND
     count = 0
     loop = 0

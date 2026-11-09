@@ -9,6 +9,23 @@ from confluent_kafka import Consumer, KafkaError, Producer
 from prometheus_client import Counter, Histogram, start_http_server
 
 KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
+
+
+def kafka_config(**extra) -> dict:
+    """Base librdkafka config; adds SASL_SSL when KAFKA_SASL_USERNAME is set (e.g. Aiven)."""
+    config = {"bootstrap.servers": KAFKA_BOOTSTRAP, **extra}
+    if sasl_username := os.getenv("KAFKA_SASL_USERNAME"):
+        config.update({
+            "security.protocol": "SASL_SSL",
+            "sasl.mechanisms": os.getenv("KAFKA_SASL_MECHANISM", "SCRAM-SHA-256"),
+            "sasl.username": sasl_username,
+            "sasl.password": os.getenv("KAFKA_SASL_PASSWORD", ""),
+        })
+        if ca_location := os.getenv("KAFKA_SSL_CA_LOCATION"):
+            config["ssl.ca.location"] = ca_location
+    return config
+
+
 IN_TOPIC = "transactions.raw"
 MANUAL_TOPIC = "transactions.manual"
 OUT_TOPIC = "transactions.scored"
@@ -70,12 +87,11 @@ def score(artifact: dict, tx: dict) -> dict:
 
 
 def _make_consumer(group_id: str, offset_reset: str) -> Consumer:
-    return Consumer({
-        "bootstrap.servers": KAFKA_BOOTSTRAP,
+    return Consumer(kafka_config(**{
         "group.id": group_id,
         "auto.offset.reset": offset_reset,
         "enable.auto.commit": False,
-    })
+    }))
 
 
 def main():
@@ -91,7 +107,7 @@ def main():
     auto_consumer = _make_consumer("scoring-service", "earliest")
     auto_consumer.subscribe([IN_TOPIC])
 
-    producer = Producer({"bootstrap.servers": KAFKA_BOOTSTRAP})
+    producer = Producer(kafka_config())
 
     count = 0
     fraud_count = 0
