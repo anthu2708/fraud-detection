@@ -93,6 +93,18 @@ jobs:
           git add helm/fraud-detection/values-producer.yaml
           git commit -m "chore(deploy): bump producer image to ${{ steps.meta.outputs.sha }} [skip ci]"
           git push origin "HEAD:$BRANCH"
+      - name: Deploy producer to fraud-vm
+        if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.FRAUD_VM_HOST }}
+          username: ${{ secrets.FRAUD_VM_USER }}
+          key: ${{ secrets.FRAUD_VM_SSH_KEY }}
+          script: |
+            cd /home/phunghuyhau/fraud-detection
+            sed -i "s|^PRODUCER_TAG=.*|PRODUCER_TAG=${{ steps.meta.outputs.sha }}|" .env
+            docker compose pull producer
+            docker compose up -d producer --no-start
 
   build-scoring:
     needs: [changes, build-producer]
@@ -130,6 +142,18 @@ jobs:
           git add helm/fraud-detection/values-scoring.yaml
           git commit -m "chore(deploy): bump scoring image to ${{ steps.meta.outputs.sha }} [skip ci]"
           git push origin "HEAD:$BRANCH"
+      - name: Deploy scoring to fraud-vm
+        if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.FRAUD_VM_HOST }}
+          username: ${{ secrets.FRAUD_VM_USER }}
+          key: ${{ secrets.FRAUD_VM_SSH_KEY }}
+          script: |
+            cd /home/phunghuyhau/fraud-detection
+            sed -i "s|^SCORING_TAG=.*|SCORING_TAG=${{ steps.meta.outputs.sha }}|" .env
+            docker compose pull scoring
+            docker compose up -d scoring
 
   build-query-api:
     needs: [changes, build-producer, build-scoring]
@@ -167,3 +191,15 @@ jobs:
           git add helm/fraud-detection/values-query-api.yaml
           git commit -m "chore(deploy): bump query-api image to ${{ steps.meta.outputs.sha }} [skip ci]"
           git push origin "HEAD:$BRANCH"
+      - name: Deploy query-api to fraud-vm
+        if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.FRAUD_VM_HOST }}
+          username: ${{ secrets.FRAUD_VM_USER }}
+          key: ${{ secrets.FRAUD_VM_SSH_KEY }}
+          script: |
+            cd /home/phunghuyhau/fraud-detection
+            sed -i "s|^QUERY_API_TAG=.*|QUERY_API_TAG=${{ steps.meta.outputs.sha }}|" .env
+            docker compose pull query_api
+            docker compose up -d query_api
